@@ -1,6 +1,6 @@
 GEN-OFFSETS	:= gen-offsets.sh
 
-PASM-OBJS	+= parasite-head-x86-64.o
+PASM-OBJS	+= $(ARCH_DIR)/parasite-head.o
 PASM-SRC	+= $(patsubst %.o,%.S,$(PASM-OBJS))
 
 POBJS		+= parasite.o
@@ -11,6 +11,7 @@ PBLOB-HDR	:= parasite-blob.h
 PBLOB-BIN	:= parasite.bin
 PBLOB-BIN-O	:= $(PBLOB-BIN).o
 
+ifneq ($(ARCH),arm)
 ROBJS		+= restorer.o
 ROBJS		+= restorer-log.o
 RSRCS		+= $(patsubst %.o,%.c,$(ROBJS))
@@ -19,11 +20,15 @@ RBLOB-NAME	:= restorer
 RBLOB-HDR	:= restorer-blob.h
 RBLOB-BIN	:= restorer.bin
 RBLOB-BIN-O	:= $(RBLOB-BIN).o
+endif
 
 DEPS		+= $(patsubst %.o,%.d,$(POBJS))
-DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
 
-PIELDS		:= pie.lds.S
+ifneq ($(ARCH),arm)
+DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
+endif
+
+PIELDS		:= $(ARCH_DIR)/pie.lds.S
 PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
 ASMFLAGS	:= -D__ASSEMBLY__
 
@@ -43,16 +48,18 @@ POBJS		+= parasite-util-net.o
 
 $(PBLOB-BIN-O): $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
 
-$(PBLOB-BIN): $(PBLOB-BIN-O) $(PIELDS) $(POBJS) $(PASM-OBJS)
+$(PBLOB-BIN): $(PBLOB-BIN-O)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(OBJCOPY) -O binary $(PBLOB-BIN-O) $(PBLOB-BIN)
 
 $(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
 
+
+ifneq ($(ARCH),arm)
 $(ROBJS): $(RSRCS) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
@@ -68,13 +75,15 @@ $(RBLOB-BIN): $(RBLOB-BIN-O) $(PIELDS) $(ROBJS)
 $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(RBLOB-NAME) > $@ || rm -f $@
+endif
 
 PIE-GEN	:= $(PBLOB-HDR) $(RBLOB-HDR)
 
 cleanpie:
 	$(E) "  CLEAN PIE"
 	$(Q) $(RM) -f ./$(PBLOB-HDR)
-	$(Q) $(RM) -f ./$(RBLOB-HDR)
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./*.bin.o
+	$(Q) $(RM) -f ./$(POBJS)
+	$(Q) $(RM) -f ./$(PASM-OBJS)
 .PHONY: cleanpie
