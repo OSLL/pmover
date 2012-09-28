@@ -106,7 +106,6 @@ struct page_entry {
 #ifdef CONFIG_X86_64
 
 #define GDT_ENTRY_TLS_ENTRIES 3
-#define TASK_COMM_LEN 16
 
 #define TASK_PF_USED_MATH		0x00002000
 
@@ -116,12 +115,14 @@ struct page_entry {
 # define AT_VECTOR_SIZE 22		/* Not needed at moment */
 #endif
 
+#endif /* CONFIG_X86_64 */
+
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2
 #define TASK_STOPPED		0x3 /* FIXME - implement */
 #define TASK_HELPER		0x4
 
-#endif /* CONFIG_X86_64 */
+#define TASK_COMM_LEN 16
 
 /*
  * There are always 4 magic bytes at the

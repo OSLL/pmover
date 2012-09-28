@@ -81,8 +81,6 @@ typedef signed char		s8;
 #define _LINUX_CAPABILITY_VERSION_3	0x20080522
 #define _LINUX_CAPABILITY_U32S_3	2
 
-#ifdef CONFIG_X86_64
-
 #include <arch-types.h>
 
 typedef struct {
@@ -116,10 +114,6 @@ static inline void ksigfillset(k_rtsigset_t *set)
 	for (i = 0; i < _KNSIG_WORDS; i++)
 		set->sig[i] = (unsigned long)-1;
 }
-
-#else /* CONFIG_X86_64 */
-# error x86-32 bit mode not yet implemented
-#endif /* CONFIG_X86_64 */
 
 #define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
 #define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
