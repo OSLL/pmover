@@ -62,6 +62,6 @@ ARCH_DIR        := $(ROOT)/arch/$(ARCH)
 
 include $(ARCH_DIR)/Makefile.inc
 
-CFLAGS		+= $(WARNINGS) $(DEFINES)
+CFLAGS		+= $(WARNINGS) $(DEFINES) -I$(ARCH_DIR)
 
 export ROOT CC LD ECHO MAKE CFLAGS LIBS ARCH DEFINES
