@@ -61,8 +61,8 @@ void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 	if (!vma_area)
 		return;
 
-	print_on_level(loglevel, "s: 0x%16lx e: 0x%16lx l: %8liK p: 0x%8x f: 0x%8x pg: 0x%8lx "
-		       "vf: %s st: %s spc: %-8s shmid: 0x%8lx\n",
+	print_on_level(loglevel, "s: 0x%16"PRIx64" e: 0x%16"PRIx64" l: %8"PRIu64"K p: 0x%8x f: 0x%8x pg: 0x%8"PRIx64" "
+		       "vf: %s st: %s spc: %-8s shmid: 0x%8"PRIx64"\n",
 		       vma_area->vma.start, vma_area->vma.end,
 		       KBYTES(vma_area_len(vma_area)),
 		       vma_area->vma.prot,
@@ -308,7 +308,7 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
-				pr_err("Ghost file size mismatch %lu/%lu\n",
+				pr_err("Ghost file size mismatch %"PRIs"/%"PRIs"\n",
 						written, bytes);
 				return -1;
 			}
@@ -356,7 +356,7 @@ void *shmalloc(size_t bytes)
 	void *ret;
 
 	if (bytes > SH_BUF_CHUNK) {
-		pr_err("Too big shared buffer requested %lu\n", bytes);
+		pr_err("Too big shared buffer requested %"PRIs"\n", bytes);
 		return NULL;
 	}
 

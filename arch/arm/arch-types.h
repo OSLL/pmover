@@ -1,6 +1,8 @@
 #ifndef ARM_ARCH_H_
 #define ARM_ARCH_H_
 
+#define PRIs PRIu32
+
 /*
  * Copied from the kernel header arch/arm/include/asm/ptrace.h
  *
@@ -70,7 +72,7 @@ typedef struct {
 #define PSR_x           0x0000ff00      /* Extension            */
 #define PSR_c           0x000000ff      /* Control              */
 
-
+#define _NSIG_BPW 32
 #define TASK_SIZE 0x7f000000
 
 #endif

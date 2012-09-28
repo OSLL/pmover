@@ -349,8 +349,8 @@ void show_socket_opts(SkOptsEntry *soe)
 
 	pr_msg("sndbuf: %u  ", soe->so_sndbuf);
 	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
-	pr_msg("sndtmo: %lu.%lu  ", soe->so_snd_tmo_sec, soe->so_snd_tmo_usec);
-	pr_msg("rcvtmo: %lu.%lu  ", soe->so_rcv_tmo_sec, soe->so_rcv_tmo_usec);
+	pr_msg("sndtmo: %"PRIu64".%"PRIu64"  ", soe->so_snd_tmo_sec, soe->so_snd_tmo_usec);
+	pr_msg("rcvtmo: %"PRIu64".%"PRIu64"  ", soe->so_rcv_tmo_sec, soe->so_rcv_tmo_usec);
 
 	pr_msg("\n");
 }

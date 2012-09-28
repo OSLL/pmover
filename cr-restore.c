@@ -207,7 +207,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
+		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 				vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
 		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))

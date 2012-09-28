@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -522,7 +523,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			goto out;
 		}
 
-		pr_info("vma %lx-%lx  dumped: %lu pages %lu skipped %lu total\n",
+		pr_info("vma %"PRIx64"-%"PRIx64" dumped: %lu pages %lu skipped %lu total\n",
 				vma_area->vma.start, vma_area->vma.end,
 				parasite_dumppages.nrpages_dumped,
 				parasite_dumppages.nrpages_skipped,

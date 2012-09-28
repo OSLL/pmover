@@ -8,7 +8,7 @@ static always_inline void *builtin_memcpy(void *to, const void *from, unsigned i
 {
 	int i;
 	unsigned char *cto = to;
-	unsigned char *cfrom = from;
+	const unsigned char *cfrom = from;
 
 	for (i = 0; i < n; ++i, ++cto, ++cfrom) {
 		*cto = *cfrom;

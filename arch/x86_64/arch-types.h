@@ -1,6 +1,8 @@
 #ifndef PROCESSOR_X86_64_H_
 #define PROCESSOR_X86_64_H_
 
+#define PRIs PRIu64
+
 typedef struct {
 	unsigned int	entry_number;
 	unsigned int	base_addr;

@@ -113,6 +113,7 @@ message core_entry {
 
 	required march			mtype		= 1;
 	optional thread_info_x86	thread_info	= 2;
+	optional thread_info_arm	ti_arm		= 6;
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
