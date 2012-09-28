@@ -1,7 +1,7 @@
 GEN-OFFSETS	:= gen-offsets.sh
 
-PASM-OBJS	+= $(ARCH_DIR)/parasite-head.o
-PASM-SRC	+= $(patsubst %.o,%.S,$(PASM-OBJS))
+PASM-OBJS	+= parasite-head.o
+PASM-SRC	+= $(ARCH_DIR)/$(patsubst %.o,%.S,$(PASM-OBJS))
 
 POBJS		+= parasite.o
 PSRCS		+= $(patsubst %.o,%.c,$(POBJS))
@@ -34,7 +34,7 @@ ASMFLAGS	:= -D__ASSEMBLY__
 
 $(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
+	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(PASM-SRC) -o $@
 
 $(POBJS): $(PSRCS) $(PASM-OBJS) $(SYS-OBJ)
 	$(E) "  CC      " $@

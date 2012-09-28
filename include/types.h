@@ -86,7 +86,7 @@ typedef signed char		s8;
 #include <arch-types.h>
 
 typedef struct {
-	unsigned long sig[1];
+	u64 sig[1];
 } rt_sigset_t;
 
 struct siginfo;
