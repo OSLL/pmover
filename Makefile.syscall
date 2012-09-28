@@ -31,6 +31,6 @@ $(SYS-OBJ): $(SYS-ASM)
 cleansyscall:
 	$(E) "  CLEAN SYSCALLS"
 	$(Q) $(RM) -f ./$(SYS-OBJ)
-	$(Q) $(RM) -f ./$(SYS-ASM)
+	$(Q) $(RM) -f $(SYS-ASM)
 	$(Q) $(RM) -f ./$(SYS-CODES)
 	$(Q) $(RM) -f ./$(SYS-PROTO)
