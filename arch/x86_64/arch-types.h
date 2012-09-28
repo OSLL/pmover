@@ -44,6 +44,9 @@ typedef struct {
 	unsigned long	gs;
 } user_regs_struct_t;
 
+#define REG_IP(regs)  regs.ip
+#define REG_RES(regs) regs.ax
+
 typedef struct {
 	unsigned short	cwd;
 	unsigned short	swd;
@@ -61,5 +64,6 @@ typedef struct {
 
 
 #define _NSIG_BPW 64
+#define TASK_SIZE (1UL << 47) - PAGE_SIZE
 
 #endif
