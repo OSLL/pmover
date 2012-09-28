@@ -57,9 +57,7 @@
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
 
-#ifndef CONFIG_X86_64
-# error No x86-32 support yet
-#endif
+#include <arch_cr_dump.h>
 
 static char loc_buf[PAGE_SIZE];
 static int pidns_proc = -1;
@@ -482,9 +480,6 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
 }
 
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
-
 static int get_task_auxv(pid_t pid, MmEntry *mm)
 {
 	int fd, ret, i;
@@ -595,98 +590,6 @@ err:
 	return ret;
 }
 
-static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
-{
-	user_fpregs_struct_t fpregs	= {-1};
-	user_regs_struct_t regs		= {-1};
-
-	int ret = -1;
-
-	pr_info("Dumping GP/FPU registers ... ");
-
-	if (ctl)
-		regs = ctl->regs_orig;
-	else {
-		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-			pr_err("Can't obtain GP registers for %d\n", pid);
-			goto err;
-		}
-	}
-
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &fpregs)) {
-		pr_err("Can't obtain FPU registers for %d\n", pid);
-		goto err;
-	}
-
-	/* Did we come from a system call? */
-	if ((int)regs.orig_ax >= 0) {
-		/* Restart the system call */
-		switch ((long)(int)regs.ax) {
-		case -ERESTARTNOHAND:
-		case -ERESTARTSYS:
-		case -ERESTARTNOINTR:
-			regs.ax = regs.orig_ax;
-			regs.ip -= 2;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			regs.ax = __NR_restart_syscall;
-			regs.ip -= 2;
-			break;
-		}
-	}
-
-	assign_reg(core->thread_info->gpregs, regs, r15);
-	assign_reg(core->thread_info->gpregs, regs, r14);
-	assign_reg(core->thread_info->gpregs, regs, r13);
-	assign_reg(core->thread_info->gpregs, regs, r12);
-	assign_reg(core->thread_info->gpregs, regs, bp);
-	assign_reg(core->thread_info->gpregs, regs, bx);
-	assign_reg(core->thread_info->gpregs, regs, r11);
-	assign_reg(core->thread_info->gpregs, regs, r10);
-	assign_reg(core->thread_info->gpregs, regs, r9);
-	assign_reg(core->thread_info->gpregs, regs, r8);
-	assign_reg(core->thread_info->gpregs, regs, ax);
-	assign_reg(core->thread_info->gpregs, regs, cx);
-	assign_reg(core->thread_info->gpregs, regs, dx);
-	assign_reg(core->thread_info->gpregs, regs, si);
-	assign_reg(core->thread_info->gpregs, regs, di);
-	assign_reg(core->thread_info->gpregs, regs, orig_ax);
-	assign_reg(core->thread_info->gpregs, regs, ip);
-	assign_reg(core->thread_info->gpregs, regs, cs);
-	assign_reg(core->thread_info->gpregs, regs, flags);
-	assign_reg(core->thread_info->gpregs, regs, sp);
-	assign_reg(core->thread_info->gpregs, regs, ss);
-	assign_reg(core->thread_info->gpregs, regs, fs_base);
-	assign_reg(core->thread_info->gpregs, regs, gs_base);
-	assign_reg(core->thread_info->gpregs, regs, ds);
-	assign_reg(core->thread_info->gpregs, regs, es);
-	assign_reg(core->thread_info->gpregs, regs, fs);
-	assign_reg(core->thread_info->gpregs, regs, gs);
-
-	assign_reg(core->thread_info->fpregs, fpregs, cwd);
-	assign_reg(core->thread_info->fpregs, fpregs, swd);
-	assign_reg(core->thread_info->fpregs, fpregs, twd);
-	assign_reg(core->thread_info->fpregs, fpregs, fop);
-	assign_reg(core->thread_info->fpregs, fpregs, rip);
-	assign_reg(core->thread_info->fpregs, fpregs, rdp);
-	assign_reg(core->thread_info->fpregs, fpregs, mxcsr);
-	assign_reg(core->thread_info->fpregs, fpregs, mxcsr_mask);
-
-	/* Make sure we have enough space */
-	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs.st_space));
-	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs.xmm_space));
-	BUG_ON(core->thread_info->fpregs->n_padding != ARRAY_SIZE(fpregs.padding));
-
-	assign_array(core->thread_info->fpregs, fpregs,	st_space);
-	assign_array(core->thread_info->fpregs, fpregs,	xmm_space);
-	assign_array(core->thread_info->fpregs, fpregs,	padding);
-
-	ret = 0;
-
-err:
-	return ret;
-}
-
 static DECLARE_KCMP_TREE(vm_tree, KCMP_VM);
 static DECLARE_KCMP_TREE(fs_tree, KCMP_FS);
 static DECLARE_KCMP_TREE(files_tree, KCMP_FILES);
@@ -756,12 +659,8 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 				   int alloc_ids)
 {
 	CoreEntry *core;
-	ThreadInfoX86 *thread_info;
-	UserX86RegsEntry *gpregs;
-	UserX86FpregsEntry *fpregs;
 	TaskCoreEntry *tc;
 	TaskKobjIdsEntry *ids;
-	ThreadCoreEntry *thread_core;
 
 	core = xmalloc(sizeof(*core));
 	if (!core)
@@ -771,42 +670,7 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 	core->mtype = CORE_ENTRY__MARCH__X86_64;
 
 	if (alloc_thread_info) {
-		thread_info = xmalloc(sizeof(*thread_info));
-		if (!thread_info)
-			goto err;
-		thread_info_x86__init(thread_info);
-		core->thread_info = thread_info;
-
-		thread_core = xmalloc(sizeof(*thread_core));
-		if (!thread_core)
-			goto err;
-		thread_core_entry__init(thread_core);
-		core->thread_core = thread_core;
-
-		gpregs = xmalloc(sizeof(*gpregs));
-		if (!gpregs)
-			goto err;
-		user_x86_regs_entry__init(gpregs);
-		thread_info->gpregs = gpregs;
-
-		fpregs = xmalloc(sizeof(*fpregs));
-		if (!fpregs)
-			goto err;
-		user_x86_fpregs_entry__init(fpregs);
-		thread_info->fpregs = fpregs;
-
-		/* These are numbers from kernel */
-		fpregs->n_st_space	= 32;
-		fpregs->n_xmm_space	= 64;
-		fpregs->n_padding	= 24;
-
-		fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
-		fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
-		fpregs->padding		= xzalloc(pb_repeated_size(fpregs, padding));
-
-		if (!fpregs->st_space || !fpregs->xmm_space || !fpregs->padding)
-			goto err;
-
+		arch_alloc_thread_info(core);
 	}
 
 	if (alloc_tc) {

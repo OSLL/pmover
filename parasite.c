@@ -28,8 +28,6 @@
  *   there
  */
 
-#ifdef CONFIG_X86_64
-
 static void *brk_start, *brk_end, *brk_tail;
 
 static int logfd = -1;
@@ -492,6 +490,3 @@ int __used parasite_service(unsigned long cmd, void *args)
 	return -EINVAL;
 }
 
-#else /* CONFIG_X86_64 */
-# error x86-32 bit mode not yet implemented
-#endif /* CONFIG_X86_64 */

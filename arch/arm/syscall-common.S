@@ -5,7 +5,7 @@
         .endm
 
 
-        // Call kernel
+        // Call the kernel
 
         .macro do_sys opcode
         movw    %r7, #\opcode
