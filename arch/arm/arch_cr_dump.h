@@ -3,6 +3,8 @@
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__ARM
 
+#define TI_SP(core) ((core)->ti_arm->gpregs->sp)
+
 #include "../protobuf/core.pb-c.h"
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.ARM_##e

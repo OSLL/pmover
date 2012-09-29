@@ -661,13 +661,20 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 	CoreEntry *core;
 	TaskCoreEntry *tc;
 	TaskKobjIdsEntry *ids;
+	ThreadCoreEntry *thread_core;
 
 	core = xmalloc(sizeof(*core));
 	if (!core)
 		return NULL;
 	core_entry__init(core);
 
-	core->mtype = CORE_ENTRY__MARCH__X86_64;
+	core->mtype = CORE_ENTRY__MARCH;
+
+	thread_core = xmalloc(sizeof(*thread_core));
+	if (!thread_core)
+		goto err;
+	thread_core_entry__init(thread_core);
+	core->thread_core = thread_core;
 
 	if (alloc_thread_info) {
 		arch_alloc_thread_info(core);
@@ -725,7 +732,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	mark_stack_vma(core->thread_info->gpregs->sp, vma_area_list);
+	mark_stack_vma(TI_SP(core), vma_area_list);
 
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
