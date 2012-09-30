@@ -3,9 +3,7 @@ include Makefile.inc
 PROGRAM		:= crtools
 
 OBJS		+= parasite-syscall.o
-ifneq ($(ARCH),arm)
 OBJS		+= cr-restore.o
-endif
 OBJS		+= crtools.o
 OBJS		+= image.o
 OBJS		+= net.o

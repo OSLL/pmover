@@ -55,6 +55,10 @@ ifeq ($(STATIC),1)
 	LINKFLAGS += -static
 endif
 
+ifeq ($(DEBUG_RESTORE),1)
+	DEFINES += -DCONFIG_DEBUG_RESTORE
+endif
+
 WARNINGS	+= -Wall
 ROOT		?= $(shell pwd)
 

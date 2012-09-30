@@ -562,7 +562,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 			goto err_unlock;
 
 	ret = clone(restore_task_with_children, ca.stack_ptr,
-			ca.clone_flags | SIGCHLD, &ca);
+			ca.clone_flags, &ca);
 
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
@@ -739,6 +739,13 @@ static int restore_task_with_children(void *_arg)
 	int ret;
 	sigset_t blockmask;
 
+#ifdef CONFIG_DEBUG_RESTORE
+	if (kill(getpid(), SIGSTOP) < 0) {
+		pr_err("Failed to stop oneself: %d\n", errno);
+		return -1;
+	}
+#endif
+
 	close_safe(&ca->fd);
 
 	current = ca->item;
@@ -829,6 +836,8 @@ static int restore_task_with_children(void *_arg)
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 {
 	int ret;
+
+#ifndef CONFIG_DEBUG_RESTORE
 	struct sigaction act, old_act;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
@@ -847,6 +856,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		pr_perror("sigaction() failed\n");
 		return -1;
 	}
+#endif
 
 	/*
 	 * FIXME -- currently we assume that all the tasks live
@@ -897,12 +907,16 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_wait_until(&task_entries->nr_in_progress, 0);
 
+
+#ifndef CONFIG_DEBUG_RESTORE
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
+
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
 		pr_perror("sigaction() failed\n");
 		goto out;
 	}
+#endif
 
 	network_unlock();
 out:
@@ -1504,17 +1518,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * An indirect call to task_restore, note it never resturns
 	 * and restoreing core is extremely destructive.
 	 */
-	asm volatile(
-		"movq %0, %%rbx						\n"
-		"movq %1, %%rax						\n"
-		"movq %2, %%rdi						\n"
-		"movq %%rbx, %%rsp					\n"
-		"callq *%%rax						\n"
-		:
-		: "g"(new_sp),
-		  "g"(restore_task_exec_start),
-		  "g"(task_args)
-		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
+
+	jump_to_restorer_blob;
 
 err:
 	free_mappings(&self_vma_list);
