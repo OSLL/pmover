@@ -54,4 +54,8 @@ struct rt_sigframe {
 		       "g"(task_args)					\
 		     : "sp", "r0", "r1", "memory")
 
+#define UserRegsEntry UserArmRegsEntry
+
+#define CORE_GPREGS(core) (core->ti_arm->gpregs)
+
 #endif

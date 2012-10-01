@@ -24,10 +24,6 @@
 
 struct cr_options opts;
 
-#ifdef CONFIG_ARM
-int cr_restore_tasks(pid_t pid, struct cr_options *opts) { return -1; }
-#endif
-
 static int parse_ns_string(const char *ptr)
 {
 	const char *end = ptr + strlen(ptr);

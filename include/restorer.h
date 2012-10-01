@@ -60,7 +60,7 @@ struct thread_restore_args {
 
 	int				pid;
 	mutex_t				*rst_lock;
-	UserX86RegsEntry		gpregs;
+	UserRegsEntry		        gpregs;
 	u64				clear_tid_addr;
 
 	bool				has_futex;
@@ -103,7 +103,7 @@ struct task_restore_core_args {
 	u64				blk_sigset;
 	char				comm[TASK_COMM_LEN];
 	TaskKobjIdsEntry		ids;
-	UserX86RegsEntry		gpregs;
+	UserRegsEntry		        gpregs;
 
 	bool				has_futex;
 	u64				futex_rla;

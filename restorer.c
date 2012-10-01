@@ -571,14 +571,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
-	asm volatile(
-		"movq %0, %%rax					\n"
-		"movq %%rax, %%rsp				\n"
-		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-		"syscall					\n"
-		:
-		: "r"(new_sp)
-		: "rax","rsp","memory");
+	ARCH_RT_SIGRETURN;
 
 core_restore_end:
 	write_num_n_err(__LINE__);
@@ -587,12 +580,7 @@ core_restore_end:
 	return -1;
 
 core_restore_failed:
-	asm volatile(
-		"movq %0, %%rsp				\n"
-		"movq 0, %%rax				\n"
-		"jmp *%%rax				\n"
-		:
-		: "r"(ret)
-		: "memory");
+	ARCH_FAIL_CORE_RESTORE;
+
 	return ret;
 }

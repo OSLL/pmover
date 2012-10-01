@@ -1417,7 +1417,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	task_args->clear_tid_addr	= core->thread_info->clear_tid_addr;
 	task_args->ids			= *core->ids;
-	task_args->gpregs		= *core->thread_info->gpregs;
+	task_args->gpregs		= *CORE_GPREGS(core);
 	task_args->blk_sigset		= core->tc->blk_sigset;
 
 	if (core->thread_core) {
@@ -1484,7 +1484,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		}
 
 		thread_args[i].rst_lock		= &task_args->rst_lock;
-		thread_args[i].gpregs		= *core->thread_info->gpregs;
+		thread_args[i].gpregs		= *CORE_GPREGS(core);
 		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
 
 		if (core->thread_core) {
