@@ -447,7 +447,7 @@ static int check_core(int pid, CoreEntry *core)
 	if (fd < 0)
 		return -1;
 
-	if (core->mtype != CORE_ENTRY__MARCH__X86_64) {
+	if (core->mtype != CORE_ENTRY__MARCH) {
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
 		goto out;
 	}
@@ -981,7 +981,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 	return restore_root_task(root_item, opts);
 }
 
-#define TASK_SIZE_MAX   ((1UL << 47) - PAGE_SIZE)
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
@@ -989,7 +988,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	long prev_vma_end = 0;
 	struct vma_area end_vma;
 
-	end_vma.vma.start = end_vma.vma.end = TASK_SIZE_MAX;
+	end_vma.vma.start = end_vma.vma.end = TASK_SIZE;
 	prev_vma_end = PAGE_SIZE;
 
 	/*
@@ -1330,8 +1329,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
 	ret = remap_restorer_blob((void *)exec_mem_hint);
-	if (ret < 0)
+
+	if (ret < 0) {
+		pr_err("Remapping the restorer blob failed\n");
 		goto err;
+	}
 
 	/*
 	 * Prepare a memory map for restorer. Note a thread space
@@ -1405,7 +1407,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * Arguments for task restoration.
 	 */
 
-	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
+	BUG_ON(core->mtype != CORE_ENTRY__MARCH);
 
 	task_args->pid		= pid;
 	task_args->logfd	= log_get_fd();

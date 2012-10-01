@@ -75,4 +75,6 @@ typedef struct {
 #define _NSIG_BPW 32
 #define TASK_SIZE 0x7f000000
 
+#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__ARM
+
 #endif

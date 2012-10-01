@@ -1,8 +1,6 @@
 #ifndef CR_DUMP_ARCH_H_X86_64_
 #define CR_DUMP_ARCH_H_X86_64_
 
-#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
-
 #define TI_SP(core) ((core)->thread_info->gpregs->sp)
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.e

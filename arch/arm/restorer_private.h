@@ -59,8 +59,6 @@
 
 static int arch_restore_thread_sigframe(struct thread_restore_args *args) {
 	struct rt_sigframe *rt_sigframe;
-	unsigned long fsgs_base;
-	int ret;
 
 #define CPREGT1(d)	rt_sigframe->sig.uc.uc_mcontext.arm_##d = args->gpregs.d
 #define CPREGT2(d, s)	rt_sigframe->sig.uc.uc_mcontext.d = args->gpregs.s
@@ -91,8 +89,6 @@ static int arch_restore_thread_sigframe(struct thread_restore_args *args) {
 
 static int arch_restore_task_sigframe(struct task_restore_core_args *args) {
 	struct rt_sigframe *rt_sigframe;
-	unsigned long fsgs_base;
-	int ret;
 
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 

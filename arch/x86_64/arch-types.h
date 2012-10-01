@@ -68,4 +68,6 @@ typedef struct {
 #define _NSIG_BPW 64
 #define TASK_SIZE (1UL << 47) - PAGE_SIZE
 
+#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
+
 #endif

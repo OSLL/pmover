@@ -1,8 +1,6 @@
 #ifndef CR_DUMP_ARM_H_
 #define CR_DUMP_ARM_H_
 
-#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__ARM
-
 #define TI_SP(core) ((core)->ti_arm->gpregs->sp)
 
 #include "../protobuf/core.pb-c.h"
