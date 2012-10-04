@@ -1182,7 +1182,7 @@ static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head 
 
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
-	int fd, exe_fd, ret = -1;
+	int fd, exe_fd, i, ret = -1;
 	MmEntry *mm;
 
 	fd = open_image_ro(CR_FD_MM, pid);
@@ -1201,8 +1201,14 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 		goto out;
 	}
 
+	for (i = 0; i < mm->n_mm_saved_auxv; ++i) {
+		args->mm_saved_auxv[i] = (auxv_t)mm->mm_saved_auxv[i];
+	}
+
+	/*
 	memcpy(args->mm_saved_auxv, mm->mm_saved_auxv,
 	       pb_repeated_size(mm, mm_saved_auxv));
+	*/
 
 	exe_fd = open_reg_by_id(args->mm.exe_file_id);
 	if (exe_fd < 0)
@@ -1417,9 +1423,15 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	task_args->clear_tid_addr	= core->thread_info->clear_tid_addr;
+	task_args->clear_tid_addr	= CORE_THREAD_INFO(core)->clear_tid_addr;
 	task_args->ids			= *core->ids;
 	task_args->gpregs		= *CORE_GPREGS(core);
+	get_core_fpstate(core, task_args);
+
+#ifdef CONFIG_HAS_TLS
+	get_core_tls(core, task_args);
+#endif
+
 	task_args->blk_sigset		= core->tc->blk_sigset;
 
 	if (core->thread_core) {
@@ -1487,7 +1499,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 		thread_args[i].rst_lock		= &task_args->rst_lock;
 		thread_args[i].gpregs		= *CORE_GPREGS(core);
-		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
+		thread_args[i].clear_tid_addr	= CORE_THREAD_INFO(core)->clear_tid_addr;
 
 		if (core->thread_core) {
 			thread_args[i].has_futex	= true;

@@ -16,8 +16,6 @@
 #include "../protobuf/creds.pb-c.h"
 #include "../protobuf/core.pb-c.h"
 
-#include <arch_restorer.h>
-
 struct task_restore_core_args;
 struct thread_restore_args;
 
@@ -98,12 +96,14 @@ struct task_restore_core_args {
 	uint32_t			cap_bnd[CR_CAP_SIZE];
 
 	MmEntry				mm;
-	u64				mm_saved_auxv[AT_VECTOR_SIZE];
+	auxv_t				mm_saved_auxv[AT_VECTOR_SIZE];
 	u64				clear_tid_addr;
 	u64				blk_sigset;
 	char				comm[TASK_COMM_LEN];
 	TaskKobjIdsEntry		ids;
 	UserRegsEntry		        gpregs;
+	UserFPState                     fpstate;
+	uint32_t                        tls;
 
 	bool				has_futex;
 	u64				futex_rla;
@@ -167,5 +167,8 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 
 	return NULL;
 }
+
+#include <memcpy_64.h>
+#include <arch_restorer.h>
 
 #endif /* CR_RESTORER_H__ */

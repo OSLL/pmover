@@ -70,4 +70,23 @@ typedef struct {
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 
+#define CORE_THREAD_INFO(core) core->thread_info
+#define CORE_GPREGS(core) (core->thread_info->gpregs)
+
+#ifdef CONFIG_X86_64
+# define AT_VECTOR_SIZE 44
+#else
+# define AT_VECTOR_SIZE 22		/* Not needed at moment */
+#endif
+
+typedef uint64_t auxv_t;
+
+#define SIGFRAME_OFFSET 8
+
+#define UserRegsEntry UserX86RegsEntry
+
+typedef struct {
+	int __unused;
+} UserFPState;
+
 #endif

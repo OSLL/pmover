@@ -1,4 +1,4 @@
-DEFINES   += -DCONFIG_ARM
+DEFINES   += -DCONFIG_ARM -DCONFIG_HAS_TLS
 ARCH_BITS := 32
 
 CC 	:= arm-linux-gnueabi-gcc

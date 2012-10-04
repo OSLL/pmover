@@ -103,17 +103,10 @@ struct page_entry {
 
 #define CR_CAP_SIZE	2
 
-//#ifdef CONFIG_X86_64
-
 #define GDT_ENTRY_TLS_ENTRIES 3
 
 #define TASK_PF_USED_MATH		0x00002000
 
-#ifdef CONFIG_X86_64
-# define AT_VECTOR_SIZE 44
-#else
-# define AT_VECTOR_SIZE 22		/* Not needed at moment */
-#endif
 
   //#endif /* CONFIG_X86_64 */
 

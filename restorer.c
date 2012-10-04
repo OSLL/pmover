@@ -267,7 +267,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
 	VmaEntry *vma_entry;
-	u64 va;
+	size_t va;
 
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp;
@@ -286,6 +286,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
+		if (vma_entry->end >= TASK_SIZE) {
+			continue;
+		}
+
 		if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
 			write_num_n_err(__LINE__);
 			goto core_restore_end;
@@ -301,6 +305,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
+
+		if (vma_entry->end >= TASK_SIZE) {
+			continue;
+		}
 
 		va = restore_mapping(vma_entry);
 
@@ -331,10 +339,13 @@ long __export_restore_task(struct task_restore_core_args *args)
 			goto core_restore_end;
 		}
 
+		//write_hex_n_err(va);
+
 		ret = sys_read(args->fd_pages, (void *)va, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
 			write_num_n_err(__LINE__);
 			write_num_n_err(ret);
+			write_hex_n_err(va);
 			goto core_restore_end;
 		}
 	}
@@ -557,6 +568,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {
+		write_num_n_err(__LINE__);
+
 		ret = ((long)__LINE__ << 16) | ((-ret) & 0xffff);
 		goto core_restore_failed;
 	}
@@ -564,13 +577,18 @@ long __export_restore_task(struct task_restore_core_args *args)
 	/*
 	 * Sigframe stack.
 	 */
-	new_sp = (long)rt_sigframe + 8;
+	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
 
 	/*
 	 * Prepare the stack and call for sigreturn,
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
+
+#ifdef CONFIG_HAS_TLS	
+	restore_tls(args->tls);
+#endif
+
 	ARCH_RT_SIGRETURN;
 
 core_restore_end:

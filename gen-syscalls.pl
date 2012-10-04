@@ -16,6 +16,7 @@ my $bits       = $ARGV[6];
 my $codesdef   = $codes =~ tr/.-/_/r;
 my $protosdef  = $protos =~ tr/.-/_/r;
 my $code       = "code$bits";
+my $need_aux   = 0;
 
 open CODESOUT, ">", $codesout;
 open PROTOSOUT, ">", $protosout;
@@ -48,25 +49,38 @@ for (<IN>) {
         next;
     }
 
-    /(?<code_macro>\S+)\s+(?<code64>\d+)\s+(?<code32>\d+)\s+(?<sys_name>\S+)\s+\((?<args>.+)\)/;
-
-    print CODESOUT "#define $+{code_macro} $+{$code}\n";
-    print PROTOSOUT "extern long $+{sys_name}($+{args});\n";
-
-    my $nargs;
-
-    if ($+{args} eq "void") {
-        $nargs = 0;
-    } else {
-        my $tmp = $+{args};
-        $nargs = 1 + ($tmp =~ tr/\,/\,/);
-
-        if ($nargs <= 4) {
-            $nargs = 0;
-        }
+    if (!/(?<code_macro>\S+)\s+(?<code64>\d+)\s+(?<code32>(?:\d+|\!))\s+(?<sys_name>\S+)\s+\((?<args>.+)\)/) {
+	die "Invalid syscall definition file\n";
     }
 
-    print ASMOUT "syscall$nargs $+{sys_name}, $+{$code}\n";
+    if ($+{$code} ne "!") {
+	print CODESOUT "#define $+{code_macro} $+{$code}\n";
+
+	my $nargs;
+
+	if ($+{args} eq "void") {
+	    $nargs = 0;
+	} else {
+	    my $tmp = $+{args};
+	    $nargs = 1 + ($tmp =~ tr/\,/\,/);
+
+	    if ($nargs <= 4) {
+		$nargs = 0;
+	    }
+	}
+
+	print ASMOUT "syscall$nargs $+{sys_name}, $+{$code}\n";
+
+    } else {
+	$need_aux = 1;
+    }
+
+    print PROTOSOUT "extern long $+{sys_name}($+{args});\n";
+}
+
+if ($need_aux == 1) {
+    print ASMOUT   "#include <syscall-aux.S>\n";
+    print CODESOUT "#include <syscall-aux.h>\n";
 }
 
 print CODESOUT  "#endif /* $codesdef */";

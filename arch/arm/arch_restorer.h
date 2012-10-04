@@ -1,46 +1,7 @@
 #ifndef ARM_RESTORER_H_
 #define ARM_RESTORER_H_
 
-// Copied from arch/arm/include/asm/sigcontext.h
-
-struct rt_sigcontext {
-	unsigned long trap_no;
-	unsigned long error_code;
-	unsigned long oldmask;
-	unsigned long arm_r0;
-	unsigned long arm_r1;
-	unsigned long arm_r2;
-	unsigned long arm_r3;
-	unsigned long arm_r4;
-	unsigned long arm_r5;
-	unsigned long arm_r6;
-	unsigned long arm_r7;
-	unsigned long arm_r8;
-	unsigned long arm_r9;
-	unsigned long arm_r10;
-	unsigned long arm_fp;
-	unsigned long arm_ip;
-	unsigned long arm_sp;
-	unsigned long arm_lr;
-	unsigned long arm_pc;
-	unsigned long arm_cpsr;
-	unsigned long fault_address;
-}; 
-
 // Copied from arch/arm/kernel/signal.c
-
-#include <sigframe.h>
-
-struct sigframe {
-	struct rt_ucontext uc;
-	unsigned long retcode[2];
-};
-
-struct rt_sigframe {
-	struct rt_siginfo info;
-	struct sigframe sig;
-};
-
 
 #define jump_to_restorer_blob						\
 	asm volatile(							\
@@ -54,8 +15,13 @@ struct rt_sigframe {
 		       "g"(task_args)					\
 		     : "sp", "r0", "r1", "memory")
 
-#define UserRegsEntry UserArmRegsEntry
+static void get_core_fpstate(CoreEntry *core, struct task_restore_core_args *args) {
+	builtin_memcpy(&args->fpstate.vfp.fpregs, core->ti_arm->fpstate->vfp_regs, sizeof(args->fpstate.vfp.fpregs));
+	args->fpstate.vfp.fpscr = core->ti_arm->fpstate->fpscr;
+}
 
-#define CORE_GPREGS(core) (core->ti_arm->gpregs)
+static void get_core_tls(CoreEntry *core, struct task_restore_core_args *args) {
+	args->tls = core->ti_arm->tls;
+}
 
 #endif

@@ -589,6 +589,16 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
+#ifdef CONFIG_HAS_TLS
+uint32_t parasite_get_tls_seized(struct parasite_ctl *ctl) {
+	struct parasite_get_tls_args tls_args;
+
+	parasite_execute(PARASITE_CMD_GET_TLS, ctl, &tls_args, sizeof(tls_args));
+
+	return tls_args.tls;
+}
+#endif
+
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;

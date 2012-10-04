@@ -36,6 +36,20 @@ typedef struct {
 #define REG_RES(regs) regs.ARM_r0
 
 
+// Copied from arch/arm/include/asm/user.h
+
+struct user_vfp {
+	unsigned long long fpregs[32];
+	unsigned long fpscr;
+};
+
+struct user_vfp_exc {
+        unsigned long   fpexc;
+	unsigned long   fpinst;
+	unsigned long   fpinst2;
+};
+
+
 /*
  * PSR bits
  */
@@ -76,5 +90,22 @@ typedef struct {
 #define TASK_SIZE 0x7f000000
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__ARM
+
+#define CORE_THREAD_INFO(core) core->ti_arm
+#define CORE_GPREGS(core) (core->ti_arm->gpregs)
+#define CORE_TLS(core) (core)->ti_arm->tls
+
+#define AT_VECTOR_SIZE 20
+
+typedef uint64_t auxv_t;
+
+#define SIGFRAME_OFFSET 0
+
+#define UserRegsEntry    UserArmRegsEntry
+
+typedef struct {
+	struct user_vfp     vfp;
+	struct user_vfp_exc vfp_exc;
+} UserFPState;
 
 #endif

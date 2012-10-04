@@ -38,14 +38,13 @@ static void *mmap_seized(struct parasite_ctl *ctl,
 	void *map = NULL;
 	int ret;
 
-	regs.ARM_r7 = (unsigned long)__NR_mmap;	/* mmap		*/
-	regs.ARM_r0 = (unsigned long)addr;	/* @addr	*/
-	regs.ARM_r1 = (unsigned long)length;	/* @length	*/
-	regs.ARM_r2 = (unsigned long)prot;	/* @prot	*/
-	regs.ARM_r3 = (unsigned long)flags;	/* @flags	*/
-	regs.ARM_r4 = (unsigned long)fd;	/* @fd		*/
-	regs.ARM_r5 = (unsigned long)offset;	/* @offset	*/
-
+	regs.ARM_r7 = (unsigned long)__NR_mmap2;     /* mmap	*/
+	regs.ARM_r0 = (unsigned long)addr;	     /* @addr	*/
+	regs.ARM_r1 = (unsigned long)length;	     /* @length	*/
+	regs.ARM_r2 = (unsigned long)prot; 	     /* @prot	*/
+	regs.ARM_r3 = (unsigned long)flags;	     /* @flags	*/
+	regs.ARM_r4 = (unsigned long)fd;	     /* @fd	*/
+	regs.ARM_r5 = (unsigned long)(offset >> 12); /* @offset	*/
 	parasite_setup_regs(ctl->syscall_ip, &regs);
 
 	ret = __parasite_execute(ctl, ctl->pid, &regs);
@@ -66,7 +65,6 @@ static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 	regs.ARM_r7 = (unsigned long)__NR_munmap;	/* mmap		*/
 	regs.ARM_r0 = (unsigned long)addr;		/* @addr	*/
 	regs.ARM_r1 = (unsigned long)length;	        /* @length	*/
-
 	parasite_setup_regs(ctl->syscall_ip, &regs);
 
 	ret = __parasite_execute(ctl, ctl->pid, &regs);

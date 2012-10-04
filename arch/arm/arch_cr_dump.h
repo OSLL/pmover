@@ -10,6 +10,7 @@
 static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 {
 	user_regs_struct_t regs = {{-1}};
+	struct user_vfp vfp;
 
 	int ret = -1;
 
@@ -24,12 +25,10 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 		}
 	}
 
-        /*
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &fpregs)) {
+	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &vfp)) {
 		pr_err("Can't obtain FPU registers for %d\n", pid);
 		goto err;
 	}
-        */
 
 	/* Did we come from a system call? */
 	if ((int)regs.ARM_ORIG_r0 >= 0) {
@@ -47,6 +46,9 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 			break;
 		}
 	}
+
+
+	// Save the ARM CPU state
 
 	assign_reg(core->ti_arm->gpregs, regs, r0);
 	assign_reg(core->ti_arm->gpregs, regs, r1);
@@ -67,6 +69,12 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 	assign_reg(core->ti_arm->gpregs, regs, cpsr);
 	core->ti_arm->gpregs->orig_r0 = regs.ARM_ORIG_r0;
 
+
+	// Save the VFP state
+
+	memcpy(CORE_THREAD_INFO(core)->fpstate->vfp_regs, &vfp.fpregs, sizeof(vfp.fpregs));
+	CORE_THREAD_INFO(core)->fpstate->fpscr = vfp.fpscr;
+
 	ret = 0;
 
 err:
@@ -76,6 +84,7 @@ err:
 static int arch_alloc_thread_info(CoreEntry* core) {
         ThreadInfoArm *ti_arm;
         UserArmRegsEntry *gpregs;
+	UserArmVfpstateEntry *fpstate;
 
         ti_arm = xmalloc(sizeof(*ti_arm));
         thread_info_arm__init(ti_arm);
@@ -84,9 +93,32 @@ static int arch_alloc_thread_info(CoreEntry* core) {
         user_arm_regs_entry__init(gpregs);
         ti_arm->gpregs = gpregs;
 
+	fpstate = xmalloc(sizeof(*fpstate));
+	user_arm_vfpstate_entry__init(fpstate);
+	fpstate->vfp_regs = xmalloc(32*sizeof(unsigned long long));
+	fpstate->n_vfp_regs = 32;
+	ti_arm->fpstate = fpstate;
+
         core->ti_arm = ti_arm;
 
         return 0;
+}
+
+static void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		if (CORE_THREAD_INFO(core)) {
+			if (CORE_THREAD_INFO(core)->fpstate) {
+				xfree(CORE_THREAD_INFO(core)->fpstate->vfp_regs);
+				xfree(CORE_THREAD_INFO(core)->fpstate);
+			}
+			xfree(CORE_THREAD_INFO(core)->gpregs);
+		}
+		xfree(CORE_THREAD_INFO(core));
+		xfree(core->thread_core);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
 }
 
 #endif

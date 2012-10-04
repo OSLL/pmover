@@ -75,8 +75,19 @@ message user_arm_regs_entry {
         required uint32 orig_r0 = 18;
 }
 
+message user_arm_vfpstate_entry {
+	repeated uint64 vfp_regs = 1;
+	required uint32 fpscr    = 2;
+	required uint32 fpexc    = 3;
+	required uint32 fpinst   = 4;
+	required uint32 fpinst2  = 5;		
+}
+
 message thread_info_arm {
-        required user_arm_regs_entry gpregs = 1;
+	required uint64			 clear_tid_addr	= 1;
+	required uint32                  tls            = 2;
+	required user_arm_regs_entry	 gpregs		= 3;
+	required user_arm_vfpstate_entry fpstate	= 4;
 }
 
 // --------------------------------------------------------------------------------

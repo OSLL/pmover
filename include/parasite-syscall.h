@@ -44,6 +44,10 @@ extern int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 					int *lfds, struct fd_opts *flags);
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
+#ifdef CONFIG_HAS_TLS
+extern uint32_t parasite_get_tls_seized(struct parasite_ctl* ctl);
+#endif
+
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct list_head *vma_area_list);

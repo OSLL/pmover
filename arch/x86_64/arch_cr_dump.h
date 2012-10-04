@@ -140,4 +140,24 @@ static int arch_alloc_thread_info(CoreEntry *core) {
 	return 1;
 }
 
+
+static void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		if (CORE_THREAD_INFO(core)) {
+			if (CORE_THREAD_INFO(core)->fpregs) {
+				xfree(core->thread_info->fpregs->st_space);
+				xfree(core->thread_info->fpregs->xmm_space);
+				xfree(core->thread_info->fpregs->padding);
+			}
+			xfree(CORE_THREAD_INFO(core)->gpregs);
+			xfree(CORE_THREAD_INFO(core)->fpregs);
+		}
+		xfree(CORE_THREAD_INFO(core));
+		xfree(core->thread_core);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
+}
+
 #endif

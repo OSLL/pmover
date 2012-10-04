@@ -492,10 +492,10 @@ static int get_task_auxv(pid_t pid, MmEntry *mm)
 
 	for (i = 0; i < AT_VECTOR_SIZE; i++) {
 		ret = read(fd, &mm->mm_saved_auxv[i],
-			   sizeof(mm->mm_saved_auxv[0]));
+			   sizeof(auxv_t));
 		if (ret == 0)
 			break;
-		else if (ret != sizeof(mm->mm_saved_auxv[0])) {
+		else if (ret != sizeof(auxv_t)) {
 			ret = -1;
 			pr_perror("Error readind %d's auxv[%d]",
 				  pid, i);
@@ -635,25 +635,6 @@ static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
 	return 0;
 }
 
-static void core_entry_free(CoreEntry *core)
-{
-	if (core) {
-		if (core->thread_info) {
-			if (core->thread_info->fpregs) {
-				xfree(core->thread_info->fpregs->st_space);
-				xfree(core->thread_info->fpregs->xmm_space);
-				xfree(core->thread_info->fpregs->padding);
-			}
-			xfree(core->thread_info->gpregs);
-			xfree(core->thread_info->fpregs);
-		}
-		xfree(core->thread_info);
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
-	}
-}
-
 static CoreEntry *core_entry_alloc(int alloc_thread_info,
 				   int alloc_tc,
 				   int alloc_ids)
@@ -704,7 +685,7 @@ err:
 }
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
-		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
+		const struct parasite_dump_misc *misc, struct parasite_ctl *ctl,
 		const struct cr_fdset *cr_fdset,
 		struct list_head *vma_area_list)
 {
@@ -749,6 +730,10 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
+
+#ifdef CONFIG_HAS_TLS
+	CORE_TLS(core) = parasite_get_tls_seized(ctl);
+#endif
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0) {
@@ -1146,7 +1131,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	}
 
 	pr_info("%d: tid_address=%p\n", pid, taddr);
-	core->thread_info->clear_tid_addr = (u64) taddr;
+	CORE_THREAD_INFO(core)->clear_tid_addr = (u64) taddr;
 
 	pr_info("OK\n");
 
