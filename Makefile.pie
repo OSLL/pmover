@@ -1,0 +1,80 @@
+GEN-OFFSETS	:= gen-offsets.sh
+
+PASM-OBJS	+= parasite-head-x86-64.o
+PASM-SRC	+= $(patsubst %.o,%.S,$(PASM-OBJS))
+
+POBJS		+= parasite.o
+PSRCS		+= $(patsubst %.o,%.c,$(POBJS))
+
+PBLOB-NAME	:= parasite
+PBLOB-HDR	:= parasite-blob.h
+PBLOB-BIN	:= parasite.bin
+PBLOB-BIN-O	:= $(PBLOB-BIN).o
+
+ROBJS		+= restorer.o
+ROBJS		+= restorer-log.o
+RSRCS		+= $(patsubst %.o,%.c,$(ROBJS))
+
+RBLOB-NAME	:= restorer
+RBLOB-HDR	:= restorer-blob.h
+RBLOB-BIN	:= restorer.bin
+RBLOB-BIN-O	:= $(RBLOB-BIN).o
+
+DEPS		+= $(patsubst %.o,%.d,$(POBJS))
+DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
+
+PIELDS		:= pie.lds.S
+PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
+ASMFLAGS	:= -D__ASSEMBLY__
+
+$(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
+
+$(POBJS): $(PSRCS) $(PASM-OBJS) $(SYS-OBJ)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
+
+parasite-util-net.o: util-net.c $(SYS-OBJ)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
+
+POBJS		+= parasite-util-net.o
+
+$(PBLOB-BIN-O): $(PIELDS) $(POBJS) $(PASM-OBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+
+$(PBLOB-BIN): $(PBLOB-BIN-O) $(PIELDS) $(POBJS) $(PASM-OBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+
+$(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
+
+$(ROBJS): $(RSRCS) $(SYS-OBJ)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
+
+$(RBLOB-BIN-O): $(PIELDS) $(ROBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
+
+$(RBLOB-BIN): $(RBLOB-BIN-O) $(PIELDS) $(ROBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
+
+$(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) $(GEN-OFFSETS) $(RBLOB-NAME) > $@ || rm -f $@
+
+PIE-GEN	:= $(PBLOB-HDR) $(RBLOB-HDR)
+
+cleanpie:
+	$(E) "  CLEAN PIE"
+	$(Q) $(RM) -f ./$(PBLOB-HDR)
+	$(Q) $(RM) -f ./$(RBLOB-HDR)
+	$(Q) $(RM) -f ./*.bin
+	$(Q) $(RM) -f ./*.bin.o
+.PHONY: cleanpie
