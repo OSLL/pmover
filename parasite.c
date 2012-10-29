@@ -9,6 +9,8 @@
 
 #include <string.h>
 
+#include <arch_parasite.h>
+
 /*
  * Some notes on parasite code overall. There are a few
  * calling convention specfics the caller must follow
@@ -27,8 +29,6 @@
  *   structure so service routine will pass error code
  *   there
  */
-
-#ifdef CONFIG_X86_64
 
 static void *brk_start, *brk_end, *brk_tail;
 
@@ -221,14 +221,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	ret = 0;
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		unsigned long vaddr;
+		size_t vaddr;
 
 		if (should_dump_page(&args->vma_entry, map[pfn])) {
 			/*
 			 * That's the optimized write of
 			 * page_entry structure, see image.h
 			 */
-			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
+			vaddr = (size_t)args->vma_entry.start + pfn * PAGE_SIZE;
 
 			ret = sys_write_safe(fd, &vaddr, sizeof(vaddr));
 			if (ret)
@@ -442,6 +442,12 @@ static int parasite_set_logfd()
 	return ret;
 }
 
+#ifdef CONFIG_HAS_TLS
+static void parasite_get_tls(struct parasite_get_tls_args* args) {
+	args->tls = get_tls();
+}
+#endif
+
 static int fini(void)
 {
 	if (reset_blocked == 1)
@@ -486,12 +492,15 @@ int __used parasite_service(unsigned long cmd, void *args)
 		return drain_fds((struct parasite_drain_fd *)args);
 	case PARASITE_CMD_GET_PROC_FD:
 		return parasite_get_proc_fd();
+
+#ifdef CONFIG_HAS_TLS
+	case PARASITE_CMD_GET_TLS:
+		parasite_get_tls((struct parasite_get_tls_args*)args);
+		return 0;
+#endif
 	}
 
 	sys_write_msg("Unknown command to parasite\n");
 	return -EINVAL;
 }
 
-#else /* CONFIG_X86_64 */
-# error x86-32 bit mode not yet implemented
-#endif /* CONFIG_X86_64 */

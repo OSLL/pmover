@@ -33,6 +33,8 @@ enum {
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
 
+	PARASITE_CMD_GET_TLS,
+
 	PARASITE_CMD_MAX,
 };
 
@@ -86,6 +88,10 @@ struct parasite_dump_tid_info {
 struct parasite_drain_fd {
 	int	nr_fds;
 	int	fds[PARASITE_MAX_FDS];
+};
+
+struct parasite_get_tls_args {
+	uint32_t tls;
 };
 
 static inline int drain_fds_size(struct parasite_drain_fd *dfds)

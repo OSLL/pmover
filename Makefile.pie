@@ -1,7 +1,7 @@
 GEN-OFFSETS	:= gen-offsets.sh
 
-PASM-OBJS	+= parasite-head-x86-64.o
-PASM-SRC	+= $(patsubst %.o,%.S,$(PASM-OBJS))
+PASM-OBJS	+= parasite-head.o
+PASM-SRC	+= $(ARCH_DIR)/$(patsubst %.o,%.S,$(PASM-OBJS))
 
 POBJS		+= parasite.o
 PSRCS		+= $(patsubst %.o,%.c,$(POBJS))
@@ -19,17 +19,21 @@ RBLOB-NAME	:= restorer
 RBLOB-HDR	:= restorer-blob.h
 RBLOB-BIN	:= restorer.bin
 RBLOB-BIN-O	:= $(RBLOB-BIN).o
+ifeq ($(ARCH),arm)
+RBLOB-AUX-O	:= uidiv.o
+RBLOB-AUX-SRC	:= $(ARCH_DIR)/uidiv.S
+endif
 
 DEPS		+= $(patsubst %.o,%.d,$(POBJS))
 DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
 
-PIELDS		:= pie.lds.S
+PIELDS		:= $(ARCH_DIR)/pie.lds.S
 PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
 ASMFLAGS	:= -D__ASSEMBLY__
 
 $(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
+	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(PASM-SRC) -o $@
 
 $(POBJS): $(PSRCS) $(PASM-OBJS) $(SYS-OBJ)
 	$(E) "  CC      " $@
@@ -43,27 +47,34 @@ POBJS		+= parasite-util-net.o
 
 $(PBLOB-BIN-O): $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
 
-$(PBLOB-BIN): $(PBLOB-BIN-O) $(PIELDS) $(POBJS) $(PASM-OBJS)
+$(PBLOB-BIN): $(PBLOB-BIN-O)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(OBJCOPY) -O binary $(PBLOB-BIN-O) $(PBLOB-BIN)
 
 $(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
 
+
+ifdef RBLOB-AUX-O
+$(RBLOB-AUX-O): $(RBLOB-AUX-SRC)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c -o $(RBLOB-AUX-O) $(RBLOB-AUX-SRC)
+endif
+
 $(ROBJS): $(RSRCS) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
-$(RBLOB-BIN-O): $(PIELDS) $(ROBJS)
+$(RBLOB-BIN-O): $(PIELDS) $(ROBJS) $(RBLOB-AUX-O)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ) $(RBLOB-AUX-O)
 
 $(RBLOB-BIN): $(RBLOB-BIN-O) $(PIELDS) $(ROBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
+	$(Q) $(OBJCOPY) -O binary $(RBLOB-BIN-O) $(RBLOB-BIN)
 
 $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
@@ -77,4 +88,9 @@ cleanpie:
 	$(Q) $(RM) -f ./$(RBLOB-HDR)
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./*.bin.o
+	$(Q) $(RM) -f ./$(POBJS)
+	$(Q) $(RM) -f ./$(PASM-OBJS)
+	$(Q) $(RM) -f ./$(ROBJS)
+
+
 .PHONY: cleanpie

@@ -52,7 +52,7 @@ void write_str_n_on_level(unsigned int loglevel, char *str)
 
 static void write_num(long num)
 {
-	unsigned long d = 1000000000000000000;
+	unsigned long d = 1000000000;
 	unsigned int started = 0;
 	unsigned int c;
 
@@ -121,7 +121,7 @@ void write_hex_n_on_level(unsigned int loglevel, unsigned long num)
 
 long vprint_num(char *buf, long num)
 {
-	unsigned long d = 1000000000000000000;
+	unsigned long d = 1000000000;
 	unsigned int started = 0;
 	unsigned int i = 0;
 	unsigned int c;

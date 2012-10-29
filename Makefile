@@ -83,7 +83,7 @@ protobuf:
 
 $(PROGRAM): $(OBJS) $(SYS-OBJ) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
+	$(Q) $(CC) $(CFLAGS) $(LINKFLAGS) $^ $(LIBS) -o $@
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all

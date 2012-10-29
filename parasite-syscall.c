@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -20,9 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef CONFIG_X86_64
-static const char code_syscall[] = {0x0f, 0x05, 0xcc, 0xcc,
-				    0xcc, 0xcc, 0xcc, 0xcc};
+#include <arch_parasite_syscall.h>
 
 #define code_syscall_size	(round_up(sizeof(code_syscall), sizeof(long)))
 #define parasite_size		(round_up(sizeof(parasite_blob), sizeof(long)))
@@ -53,18 +52,6 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	}
 
 	return NULL;
-}
-
-/* Note it's destructive on @regs */
-static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
-{
-	regs->ip = new_ip;
-
-	/* Avoid end of syscall processing */
-	regs->orig_ax = -1;
-
-	/* Make sure flags are in known state */
-	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
 }
 
 /* we run at @regs->ip */
@@ -110,7 +97,7 @@ again:
 			goto err;
 	}
 
-	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
+	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != ARCH_SI_TRAP) {
 retry_signal:
 		pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code);
@@ -248,7 +235,7 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 
 	ret = __parasite_execute(ctl, pid, &regs);
 	if (ret == 0)
-		ret = -(int)regs.ax;
+		ret = -(int)REG_RES(regs);
 
 	if (args)
 		memcpy(args, ctl->addr_args, args_size);
@@ -269,52 +256,6 @@ static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 			    void *args, int args_size)
 {
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid, args, args_size);
-}
-
-static void *mmap_seized(struct parasite_ctl *ctl,
-			 void *addr, size_t length, int prot,
-			 int flags, int fd, off_t offset)
-{
-	user_regs_struct_t regs = ctl->regs_orig;
-	void *map = NULL;
-	int ret;
-
-	regs.ax  = (unsigned long)__NR_mmap;	/* mmap		*/
-	regs.di  = (unsigned long)addr;		/* @addr	*/
-	regs.si  = (unsigned long)length;	/* @length	*/
-	regs.dx  = (unsigned long)prot;		/* @prot	*/
-	regs.r10 = (unsigned long)flags;	/* @flags	*/
-	regs.r8  = (unsigned long)fd;		/* @fd		*/
-	regs.r9  = (unsigned long)offset;	/* @offset	*/
-
-	parasite_setup_regs(ctl->syscall_ip, &regs);
-
-	ret = __parasite_execute(ctl, ctl->pid, &regs);
-	if (ret)
-		goto err;
-
-	if ((long)regs.ax > 0)
-		map = (void *)regs.ax;
-err:
-	return map;
-}
-
-static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
-{
-	user_regs_struct_t regs = ctl->regs_orig;
-	int ret;
-
-	regs.ax = (unsigned long)__NR_munmap;	/* mmap		*/
-	regs.di = (unsigned long)addr;		/* @addr	*/
-	regs.si = (unsigned long)length;	/* @length	*/
-
-	parasite_setup_regs(ctl->syscall_ip, &regs);
-
-	ret = __parasite_execute(ctl, ctl->pid, &regs);
-	if (!ret)
-		ret = (int)regs.ax;
-
-	return ret;
 }
 
 static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
@@ -570,6 +511,10 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			continue;
 		}
 
+		if (vma_area->vma.end > TASK_SIZE) {
+			continue;
+		}
+
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl,
 				       &parasite_dumppages,
 				       sizeof(parasite_dumppages));
@@ -578,7 +523,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			goto out;
 		}
 
-		pr_info("vma %lx-%lx  dumped: %lu pages %lu skipped %lu total\n",
+		pr_info("vma %"PRIx64"-%"PRIx64" dumped: %lu pages %lu skipped %lu total\n",
 				vma_area->vma.start, vma_area->vma.end,
 				parasite_dumppages.nrpages_dumped,
 				parasite_dumppages.nrpages_skipped,
@@ -644,6 +589,16 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
+#ifdef CONFIG_HAS_TLS
+uint32_t parasite_get_tls_seized(struct parasite_ctl *ctl) {
+	struct parasite_get_tls_args tls_args;
+
+	parasite_execute(PARASITE_CMD_GET_TLS, ctl, &tls_args, sizeof(tls_args));
+
+	return tls_args.tls;
+}
+#endif
+
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;
@@ -706,7 +661,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 		goto err;
 	}
 
-	vma_area = get_vma_by_ip(vma_area_list, ctl->regs_orig.ip);
+	vma_area = get_vma_by_ip(vma_area_list, REG_IP(ctl->regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
@@ -794,6 +749,3 @@ err:
 	return NULL;
 }
 
-#else /* CONFIG_X86_64 */
-# error x86-32 is not yet implemented
-#endif /* CONFIG_X86_64 */

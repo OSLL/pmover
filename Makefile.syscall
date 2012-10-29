@@ -1,12 +1,12 @@
-SYS-DEF		:= include/syscall-x86-64.def
-SYS-ASM-COMMON	:= syscall-common-x86-64.S
+SYS-DEF		:= include/syscall.def
+SYS-ASM-COMMON	:= $(ARCH_DIR)/syscall-common.S
 SYS-TYPES	:= include/syscall-types.h
 
 SYS-CODES	:= include/syscall-codes.h
 SYS-PROTO	:= include/syscall.h
 
-SYS-ASM		:= syscall-x86-64.S
-SYS-GEN		:= syscalls-x86-64.sh
+SYS-ASM		:= syscall.S
+SYS-GEN		:= ./gen-syscalls.pl
 
 SYS-OBJ		:= $(patsubst %.S,%.o,$(SYS-ASM))
 
@@ -14,21 +14,22 @@ SYS-FLAGS	:= -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdli
 
 $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
-	$(Q) $(SH)			\
-		$(SYS-GEN)		\
+	$(Q) 	$(SYS-GEN)		\
 		$(SYS-DEF)		\
 		$(SYS-CODES)		\
 		$(SYS-PROTO)		\
 		$(SYS-ASM)		\
 		$(SYS-ASM-COMMON)	\
-		$(SYS-TYPES)
+		$(SYS-TYPES)            \
+		$(ARCH_BITS)
 
 $(SYS-OBJ): $(SYS-ASM)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) $(SYS-FLAGS)  $< -o $@
+	$(Q) $(CC) -c $(CFLAGS) $(SYS-FLAGS) -I.  $< -o $@
 
 cleansyscall:
 	$(E) "  CLEAN SYSCALLS"
+	$(Q) $(RM) -f ./$(SYS-OBJ)
 	$(Q) $(RM) -f ./$(SYS-ASM)
 	$(Q) $(RM) -f ./$(SYS-CODES)
 	$(Q) $(RM) -f ./$(SYS-PROTO)

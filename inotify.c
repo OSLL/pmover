@@ -75,9 +75,9 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	InotifyWdEntry *we = &e->ify;
 
 	we->id = *(u32 *)arg;
-	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
+	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
-	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
+	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
@@ -131,13 +131,13 @@ static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 
 	target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
 	if (target < 0) {
-		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+		pr_perror("Can't open file handle for 0x%08x:0x%016"PRIx64,
 			  iwe->s_dev, iwe->i_ino);
 		return -1;
 	}
 
 	snprintf(path, sizeof(path), "/proc/self/fd/%d", target);
-	pr_debug("\t\tRestore watch for 0x%08x:0x%016lx\n", iwe->s_dev, iwe->i_ino);
+	pr_debug("\t\tRestore watch for 0x%08x:0x%016"PRIx64"\n", iwe->s_dev, iwe->i_ino);
 
 	/*
 	 * FIXME The kernel allocates wd-s sequentially,

@@ -207,7 +207,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
+		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 				vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
 		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
@@ -447,7 +447,7 @@ static int check_core(int pid, CoreEntry *core)
 	if (fd < 0)
 		return -1;
 
-	if (core->mtype != CORE_ENTRY__MARCH__X86_64) {
+	if (core->mtype != CORE_ENTRY__MARCH) {
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
 		goto out;
 	}
@@ -562,7 +562,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 			goto err_unlock;
 
 	ret = clone(restore_task_with_children, ca.stack_ptr,
-			ca.clone_flags | SIGCHLD, &ca);
+			ca.clone_flags, &ca);
 
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
@@ -739,6 +739,13 @@ static int restore_task_with_children(void *_arg)
 	int ret;
 	sigset_t blockmask;
 
+#ifdef CONFIG_DEBUG_RESTORE
+	if (kill(getpid(), SIGSTOP) < 0) {
+		pr_err("Failed to stop oneself: %d\n", errno);
+		return -1;
+	}
+#endif
+
 	close_safe(&ca->fd);
 
 	current = ca->item;
@@ -829,6 +836,8 @@ static int restore_task_with_children(void *_arg)
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 {
 	int ret;
+
+#ifndef CONFIG_DEBUG_RESTORE
 	struct sigaction act, old_act;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
@@ -847,6 +856,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		pr_perror("sigaction() failed\n");
 		return -1;
 	}
+#endif
 
 	/*
 	 * FIXME -- currently we assume that all the tasks live
@@ -897,12 +907,16 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_wait_until(&task_entries->nr_in_progress, 0);
 
+
+#ifndef CONFIG_DEBUG_RESTORE
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
+
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
 		pr_perror("sigaction() failed\n");
 		goto out;
 	}
+#endif
 
 	network_unlock();
 out:
@@ -967,7 +981,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 	return restore_root_task(root_item, opts);
 }
 
-#define TASK_SIZE_MAX   ((1UL << 47) - PAGE_SIZE)
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
@@ -975,7 +988,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	long prev_vma_end = 0;
 	struct vma_area end_vma;
 
-	end_vma.vma.start = end_vma.vma.end = TASK_SIZE_MAX;
+	end_vma.vma.start = end_vma.vma.end = TASK_SIZE;
 	prev_vma_end = PAGE_SIZE;
 
 	/*
@@ -1169,7 +1182,7 @@ static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head 
 
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
-	int fd, exe_fd, ret = -1;
+	int fd, exe_fd, i, ret = -1;
 	MmEntry *mm;
 
 	fd = open_image_ro(CR_FD_MM, pid);
@@ -1188,8 +1201,14 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 		goto out;
 	}
 
+	for (i = 0; i < mm->n_mm_saved_auxv; ++i) {
+		args->mm_saved_auxv[i] = (auxv_t)mm->mm_saved_auxv[i];
+	}
+
+	/*
 	memcpy(args->mm_saved_auxv, mm->mm_saved_auxv,
 	       pb_repeated_size(mm, mm_saved_auxv));
+	*/
 
 	exe_fd = open_reg_by_id(args->mm.exe_file_id);
 	if (exe_fd < 0)
@@ -1316,8 +1335,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
 	ret = remap_restorer_blob((void *)exec_mem_hint);
-	if (ret < 0)
+
+	if (ret < 0) {
+		pr_err("Remapping the restorer blob failed\n");
 		goto err;
+	}
 
 	/*
 	 * Prepare a memory map for restorer. Note a thread space
@@ -1391,7 +1413,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * Arguments for task restoration.
 	 */
 
-	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
+	BUG_ON(core->mtype != CORE_ENTRY__MARCH);
 
 	task_args->pid		= pid;
 	task_args->logfd	= log_get_fd();
@@ -1401,9 +1423,15 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	task_args->clear_tid_addr	= core->thread_info->clear_tid_addr;
+	task_args->clear_tid_addr	= CORE_THREAD_INFO(core)->clear_tid_addr;
 	task_args->ids			= *core->ids;
-	task_args->gpregs		= *core->thread_info->gpregs;
+	task_args->gpregs		= *CORE_GPREGS(core);
+	get_core_fpstate(core, task_args);
+
+#ifdef CONFIG_HAS_TLS
+	get_core_tls(core, task_args);
+#endif
+
 	task_args->blk_sigset		= core->tc->blk_sigset;
 
 	if (core->thread_core) {
@@ -1470,8 +1498,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		}
 
 		thread_args[i].rst_lock		= &task_args->rst_lock;
-		thread_args[i].gpregs		= *core->thread_info->gpregs;
-		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
+		thread_args[i].gpregs		= *CORE_GPREGS(core);
+		thread_args[i].clear_tid_addr	= CORE_THREAD_INFO(core)->clear_tid_addr;
 
 		if (core->thread_core) {
 			thread_args[i].has_futex	= true;
@@ -1504,17 +1532,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * An indirect call to task_restore, note it never resturns
 	 * and restoreing core is extremely destructive.
 	 */
-	asm volatile(
-		"movq %0, %%rbx						\n"
-		"movq %1, %%rax						\n"
-		"movq %2, %%rdi						\n"
-		"movq %%rbx, %%rsp					\n"
-		"callq *%%rax						\n"
-		:
-		: "g"(new_sp),
-		  "g"(restore_task_exec_start),
-		  "g"(task_args)
-		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
+
+	jump_to_restorer_blob;
 
 err:
 	free_mappings(&self_vma_list);
