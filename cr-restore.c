@@ -562,7 +562,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 			goto err_unlock;
 
 	ret = clone(restore_task_with_children, ca.stack_ptr,
-			ca.clone_flags, &ca);
+			ca.clone_flags | SIGCHLD , &ca);
 
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
