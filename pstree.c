@@ -11,6 +11,10 @@
 
 struct pstree_item *root_item;
 
+#ifdef CONFIG_ARM
+struct task_entries *task_entries;
+#endif
+
 void free_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item, *parent;

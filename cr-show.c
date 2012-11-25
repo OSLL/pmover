@@ -45,11 +45,6 @@
 
 #define DEF_PAGES_PER_LINE	6
 
-#ifndef CONFIG_X86_64
-# error No x86-32 support yet
-#endif
-
-
 #define PR_SYMBOL(sym)			\
 	(isprint(sym) ? sym : '.')
 
@@ -214,7 +209,7 @@ void show_pages(int fd_pages, struct cr_options *o)
 					goto out;
 				}
 
-				pr_msg("0x%16lx ", e.va);
+				pr_msg("0x%16"PRIx64" ", e.va);
 			}
 			pr_msg("\n");
 		}
@@ -318,19 +313,19 @@ static inline char *task_state_str(int state)
 static void show_core_regs(UserX86RegsEntry *regs)
 {
 #define pr_regs4(s, n1, n2, n3, n4)	\
-	pr_msg("\t%8s: 0x%-16lx "	\
-	       "%8s: 0x%-16lx "		\
-	       "%8s: 0x%-16lx "		\
-	       "%8s: 0x%-16lx\n",	\
+	pr_msg("\t%8s: 0x%-16"PRIx64" "	\
+	       "%8s: 0x%-16"PRIx64" "	\
+	       "%8s: 0x%-16"PRIx64" "	\
+	       "%8s: 0x%-16"PRIx64"\n",	\
 	       #n1, s->n1,		\
 	       #n2, s->n2,		\
 	       #n3, s->n3,		\
 	       #n4, s->n4)
 
 #define pr_regs3(s, n1, n2, n3)		\
-	pr_msg("\t%8s: 0x%-16lx "	\
-	       "%8s: 0x%-16lx "		\
-	       "%8s: 0x%-16lx\n",	\
+	pr_msg("\t%8s: 0x%-16"PRIx64" "	\
+	       "%8s: 0x%-16"PRIx64" "	\
+	       "%8s: 0x%-16"PRIx64"\n",	\
 	       #n1, s->n1,		\
 	       #n2, s->n2,		\
 	       #n3, s->n3)
@@ -353,7 +348,7 @@ void show_thread_info(ThreadInfoX86 *thread_info)
 		return;
 
 	pr_msg("\t---[ Thread info ]---\n");
-	pr_msg("\tclear_tid_addr:  0x%lx\n", thread_info->clear_tid_addr);
+	pr_msg("\tclear_tid_addr:  0x%"PRIx64"\n", thread_info->clear_tid_addr);
 	pr_msg("\n");
 
 	show_core_regs(thread_info->gpregs);

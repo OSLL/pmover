@@ -12,9 +12,7 @@
 
 #include <string.h>
 
-#ifndef CONFIG_X86_64
-#error non-x86-64 mode not yet implemented
-#endif
+#include <arch_parasite.h>
 
 static void *brk_start, *brk_end, *brk_tail;
 
@@ -192,14 +190,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	ret = 0;
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		unsigned long vaddr;
+		size_t vaddr;
 
 		if (should_dump_page(&args->vma_entry, map[pfn])) {
 			/*
 			 * That's the optimized write of
 			 * page_entry structure, see image.h
 			 */
-			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
+			vaddr = (size_t)args->vma_entry.start + pfn * PAGE_SIZE;
 
 			ret = sys_write_safe(fd_pages, &vaddr, sizeof(vaddr));
 			if (ret)
@@ -582,6 +580,12 @@ static int parasite_cfg_log(struct parasite_log_args *args)
 	return ret;
 }
 
+#ifdef CONFIG_HAS_TLS
+static void parasite_get_tls(struct parasite_get_tls_args* args) {
+	args->tls = get_tls();
+}
+#endif
+
 static int fini(void)
 {
 	int ret;
@@ -633,6 +637,12 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return parasite_get_proc_fd();
 	case PARASITE_CMD_DUMP_TTY:
 		return parasite_dump_tty(args);
+
+#ifdef CONFIG_HAS_TLS
+	case PARASITE_CMD_GET_TLS:
+		parasite_get_tls((struct parasite_get_tls_args*)args);
+		return 0;
+#endif
 	}
 
 	pr_err("Unknown command to parasite\n");

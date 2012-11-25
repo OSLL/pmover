@@ -48,6 +48,7 @@ extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
 struct pstree_item;
 extern int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item);
+extern uint32_t parasite_get_tls_seized(struct parasite_ctl* ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
 						   struct list_head *vma_area_list);

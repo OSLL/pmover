@@ -1,12 +1,12 @@
-SYS-DEF		:= $(SRC_DIR)/include/syscall-x86-64.def
-SYS-ASM-COMMON	:= syscall-common-x86-64.S
+SYS-DEF		:= $(SRC_DIR)/include/syscall.def
+SYS-ASM-COMMON	:= syscall-common.S
 SYS-TYPES	:= $(SRC_DIR)/include/syscall-types.h
 
 SYS-CODES	:= $(SRC_DIR)/include/syscall-codes.h
 SYS-PROTO	:= $(SRC_DIR)/include/syscall.h
 
 SYS-ASM		:= syscalls.S
-SYS-GEN		:= syscalls-x86-64.sh
+SYS-GEN		:= $(SRC_DIR)/gen-syscalls.pl
 
 SYS-OBJ		:= syscalls.o
 
@@ -16,20 +16,21 @@ CFLAGS		+= -c -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdl
 
 $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
-	$(Q) $(SH)			\
+	$(Q) perl			\
 		$(SYS-GEN)		\
 		$(SYS-DEF)		\
 		$(SYS-CODES)		\
 		$(SYS-PROTO)		\
 		$(SYS-ASM)		\
 		$(SYS-ASM-COMMON)	\
-		$(SYS-TYPES)
+		$(SYS-TYPES)		\
+		$(ARCH_BITS)
 
 %.o: %.S
 	$(E) "  CC      " $@
 	$(Q) $(CC) $(CFLAGS)  $^ -o $@
 
-x86: $(SYS-OBJ)
+x86: $(SYS-OBJ) parasite-head.o
 
 clean:
 	$(E) "  CLEAN SYSCALLS"

@@ -14,9 +14,7 @@ FIND		:= find
 CSCOPE		:= cscope
 TAGS		:= ctags
 RM		:= rm
-LD		:= ld
 HEXDUMP		:= hexdump
-CC		:= gcc
 ECHO		:= echo
 NM		:= nm
 AWK		:= awk
@@ -40,9 +38,12 @@ ifeq ($(uname_M),x86_64)
 	DEFINES      := -DCONFIG_X86_64
 endif
 
-SRC_DIR		?= $(shell pwd)
+include arch/$(ARCH)/Makefile.inc
 
-CFLAGS		= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -fno-strict-aliasing
+SRC_DIR		?= $(shell pwd)
+ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
+
+CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
@@ -71,7 +72,7 @@ MAKEFLAGS	:= --no-print-directory
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH OBJCOPY ARCH_BITS LDARCH ARCH_DIR
 
 
 PROGRAM		:= crtools
@@ -121,7 +122,7 @@ OBJS		+= tty.o
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf x86
+	docs help pie protobuf $(ARCH)
 
 all: pie
 	$(Q) $(MAKE) $(PROGRAM)
@@ -132,8 +133,8 @@ pie: protobuf $(ARCH)
 protobuf:
 	$(Q) $(MAKE) -C protobuf/
 
-x86:
-	$(Q) $(MAKE) -C arch/x86/
+$(ARCH):
+	$(Q) $(MAKE) -C arch/$(ARCH)/
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -153,7 +154,7 @@ x86:
 
 $(PROGRAM): $(OBJS) $(SYSCALL-LIB) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
+	$(Q) $(CC) $(CFLAGS) $(LINKFLAGS) $^ $(LIBS) -o $@
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
@@ -180,7 +181,7 @@ clean:
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(MAKE) -C protobuf/ clean
-	$(Q) $(MAKE) -C arch/x86/ clean
+	$(Q) $(MAKE) -C arch/$(ARCH)/ clean
 	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean

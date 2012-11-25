@@ -27,6 +27,8 @@
 
 #include "creds.pb-c.h"
 
+#include <restorer_private.h>
+
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
@@ -140,52 +142,6 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &parm);
 }
 
-static int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
-{
-	long ret;
-	unsigned long fsgs_base;
-
-#define CPREG1(d)	f->uc.uc_mcontext.d = r->d
-#define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
-
-	CPREG1(r8);
-	CPREG1(r9);
-	CPREG1(r10);
-	CPREG1(r11);
-	CPREG1(r12);
-	CPREG1(r13);
-	CPREG1(r14);
-	CPREG1(r15);
-	CPREG2(rdi, di);
-	CPREG2(rsi, si);
-	CPREG2(rbp, bp);
-	CPREG2(rbx, bx);
-	CPREG2(rdx, dx);
-	CPREG2(rax, ax);
-	CPREG2(rcx, cx);
-	CPREG2(rsp, sp);
-	CPREG2(rip, ip);
-	CPREG2(eflags, flags);
-	CPREG1(cs);
-	CPREG1(gs);
-	CPREG1(fs);
-
-	fsgs_base = r->fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
-	if (ret) {
-		pr_info("SET_FS fail %ld\n", ret);
-		return -1;
-	}
-
-	fsgs_base = r->gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
-	if (ret) {
-		pr_info("SET_GS fail %ld\n", ret);
-		return -1;
-	}
-
-	return 0;
-}
 
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
@@ -239,14 +195,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	new_sp = (long)rt_sigframe + 8;
-	asm volatile(
-		"movq %0, %%rax					\n"
-		"movq %%rax, %%rsp				\n"
-		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-		"syscall					\n"
-		:
-		: "r"(new_sp)
-		: "rax","rsp","memory");
+	ARCH_RT_SIGRETURN;
+
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
 	sys_exit_group(1);
@@ -446,6 +396,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 			}
 		}
 
+		if (vma_entry->end >= TASK_SIZE) {
+			continue;
+		}
+
 		if (vma_entry->end > premmapped_end) {
 			if (vma_entry->start < premmapped_end)
 				addr = premmapped_end;
@@ -467,6 +421,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		if (!vma_priv(vma_entry))
 			continue;
+		
+		if (vma_entry->end >= TASK_SIZE) {
+			continue;
+		}
 
 		if (vma_entry->start > vma_entry->shmid)
 			break;
@@ -676,41 +634,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 			 * thread will run with own stack and we must not
 			 * have any additional instructions... oh, dear...
 			 */
-			asm volatile(
-				"clone_emul:				\n"
-				"movq %2, %%rsi				\n"
-				"subq $16, %%rsi			\n"
-				"movq %6, %%rdi				\n"
-				"movq %%rdi, 8(%%rsi)			\n"
-				"movq %5, %%rdi				\n"
-				"movq %%rdi, 0(%%rsi)			\n"
-				"movq %1, %%rdi				\n"
-				"movq %3, %%rdx				\n"
-				"movq %4, %%r10				\n"
-				"movl $"__stringify(__NR_clone)", %%eax	\n"
-				"syscall				\n"
 
-				"testq %%rax,%%rax			\n"
-				"jz thread_run				\n"
-
-				"movq %%rax, %0				\n"
-				"jmp clone_end				\n"
-
-				"thread_run:				\n"	/* new stack here */
-				"xorq %%rbp, %%rbp			\n"	/* clear ABI frame pointer */
-				"popq %%rax				\n"	/* clone_restore_fn  -- restore_thread */
-				"popq %%rdi				\n"	/* arguments */
-				"callq *%%rax				\n"
-
-				"clone_end:				\n"
-				: "=r"(ret)
-				:	"g"(clone_flags),
-					"g"(new_sp),
-					"g"(&parent_tid),
-					"g"(&thread_args[i].pid),
-					"g"(args->clone_restore_fn),
-					"g"(&thread_args[i])
-				: "rax", "rdi", "rsi", "rdx", "r10", "memory");
+			RUN_CLONE_RESTORE_FN;
 		}
 
 		ret = sys_flock(fd, LOCK_UN);
@@ -763,28 +688,26 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {
-		ret = ((long)__LINE__ << 32) | -ret;
+		ret = ((long)__LINE__ << 16) | ((-ret) & 0xffff);
 		goto core_restore_failed;
 	}
 
 	/*
 	 * Sigframe stack.
 	 */
-	new_sp = (long)rt_sigframe + 8;
+	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
 
 	/*
 	 * Prepare the stack and call for sigreturn,
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
-	asm volatile(
-		"movq %0, %%rax					\n"
-		"movq %%rax, %%rsp				\n"
-		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-		"syscall					\n"
-		:
-		: "r"(new_sp)
-		: "rax","rsp","memory");
+
+#ifdef CONFIG_HAS_TLS	
+	restore_tls(args->tls);
+#endif
+
+	ARCH_RT_SIGRETURN;
 
 core_restore_end:
 	pr_err("Restorer fail %ld\n", sys_getpid());
@@ -792,12 +715,7 @@ core_restore_end:
 	return -1;
 
 core_restore_failed:
-	asm volatile(
-		"movq %0, %%rsp				\n"
-		"movq 0, %%rax				\n"
-		"jmp *%%rax				\n"
-		:
-		: "r"(ret)
-		: "memory");
+	ARCH_FAIL_CORE_RESTORE;
+
 	return ret;
 }

@@ -164,7 +164,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		if (!is_vma_range_fmt(buf)) {
 			if (!strncmp(buf, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
-				pr_err("Nonlinear mapping found %016lx-%016lx\n",
+				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
 				       vma_area->vma.start, vma_area->vma.end);
 				/*
 				 * VMA is already on list and will be
@@ -186,7 +186,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 
 		memset(file_path, 0, 6);
-		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
+		num = sscanf(buf, "%"PRIx64"-%"PRIx64" %c%c%c%c %"PRIx64" %02x:%02x %lu %5s",
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino, file_path);
 		if (num < 10) {
@@ -198,7 +198,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			char path[32];
 
 			/* Figure out if it's file mapping */
-			snprintf(path, sizeof(path), "%lx-%lx", start, end);
+			snprintf(path, sizeof(path), "%"PRIx64"-%"PRIx64, start, end);
 
 			/*
 			 * Note that we "open" it in dumper process space
@@ -265,11 +265,11 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			struct stat st_buf;
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
-				pr_perror("Failed fstat on %d's map %lu", pid, start);
+				pr_perror("Failed fstat on %d's map %"PRIu64, pid, start);
 				goto err;
 			}
 			if (!S_ISREG(st_buf.st_mode)) {
-				pr_err("Can't handle non-regular mapping on %d's map %lu\n", pid, start);
+				pr_err("Can't handle non-regular mapping on %d's map %"PRIu64"\n", pid, start);
 				goto err;
 			}
 
@@ -325,7 +325,7 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_err("Bogus mapping 0x%lx-0x%lx (flags: %#x vm_file_fd: %d)\n",
+	pr_err("Bogus mapping 0x%"PRIx64"-0x%"PRIx64" (flags: %#x vm_file_fd: %d)\n",
 	       vma_area->vma.start, vma_area->vma.end,
 	       vma_area->vma.flags, vma_area->vm_file_fd);
 	goto err;
@@ -847,7 +847,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (type != FD_TYPES__EVENTFD)
 				goto parse_err;
-			ret = sscanf(str, "eventfd-count: %lx",
+			ret = sscanf(str, "eventfd-count: %"PRIx64,
 					&entry.efd.counter);
 			if (ret != 1)
 				goto parse_err;
@@ -863,7 +863,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (type != FD_TYPES__EVENTPOLL)
 				goto parse_err;
-			ret = sscanf(str, "tfd: %d events: %x data: %lx",
+			ret = sscanf(str, "tfd: %d events: %x data: %"PRIx64,
 					&entry.epl.tfd, &entry.epl.events, &entry.epl.data);
 			if (ret != 3)
 				goto parse_err;
@@ -900,7 +900,7 @@ int parse_fdinfo(int fd, int type,
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 			ret = sscanf(str,
-					"inotify wd: %8d ino: %16lx sdev: %8x "
+					"inotify wd: %8d ino: %16"PRIx64" sdev: %8x "
 					"mask: %8x ignored_mask: %8x "
 					"fhandle-bytes: %8x fhandle-type: %8x "
 					"f_handle: %n",
