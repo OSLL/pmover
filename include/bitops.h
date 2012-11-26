@@ -20,4 +20,9 @@
 
 #include <arch_bitops.h>
 
+#define for_each_bit(i, bitmask)				\
+	for (i = find_next_bit(bitmask, sizeof(bitmask), 0);	\
+	     i < sizeof(bitmask);				\
+	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
+
 #endif /* CR_BITOPS_H_ */
