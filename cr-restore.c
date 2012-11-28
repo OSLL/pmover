@@ -702,13 +702,9 @@ static int restore_one_zombie(int pid, int exit_code)
 	return -1;
 }
 
-static int check_core(int pid, CoreEntry *core)
+static int check_core(CoreEntry *core)
 {
-	int fd = -1, ret = -1;
-
-	fd = open_image_ro(CR_FD_CORE, pid);
-	if (fd < 0)
-		return -1;
+	int ret = -1;
 
 	if (core->mtype != CORE_ENTRY__MARCH) {
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
@@ -734,7 +730,6 @@ static int check_core(int pid, CoreEntry *core)
 
 	ret = 0;
 out:
-	close_safe(&fd);
 	return ret < 0 ? ret : 0;
 }
 
@@ -756,7 +751,7 @@ static int restore_one_task(int pid)
 	if (ret < 0)
 		return -1;
 
-	if (check_core(pid, core)) {
+	if (check_core(core)) {
 		ret = -1;
 		goto out;
 	}
@@ -787,6 +782,21 @@ struct cr_clone_arg {
 	unsigned long clone_flags;
 	int fd;
 };
+
+static void write_pidfile(char *pfname, int pid)
+{
+	int fd;
+
+	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	if (fd == -1) {
+		pr_perror("Can't open %s", pfname);
+		kill(pid, SIGKILL);
+		return;
+	}
+
+	dprintf(fd, "%d", pid);
+	close(fd);
+}
 
 static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone_flags)
 {
@@ -840,18 +850,8 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	if (ca.clone_flags & CLONE_NEWPID)
 		item->pid.real = ret;
 
-	if (opts.pidfile && root_item == item) {
-		int fd;
-
-		fd = open(opts.pidfile, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-		if (fd == -1) {
-			pr_perror("Can't open %s", opts.pidfile);
-			kill(ret, SIGKILL);
-		} else {
-			dprintf(fd, "%d", ret);
-			close(fd);
-		}
-	}
+	if (opts.pidfile && root_item == item)
+		write_pidfile(opts.pidfile, ret);
 
 err_unlock:
 	if (ca.fd >= 0) {
@@ -1269,12 +1269,6 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	end_vma.vma.start = end_vma.vma.end = TASK_SIZE;
 	prev_vma_end = PAGE_SIZE;
 
-	/*
-	 * Here we need some heuristics -- the VMA which restorer will
-	 * belong to should not be unmapped, so we need to gueess out
-	 * where to put it in.
-	 */
-
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
 
@@ -1643,6 +1637,18 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
 				self_vmas_len + vmas_len +
 				rst_tcp_socks_size;
+
+	/*
+	 * Restorer is a blob (code + args) that will get mapped in some
+	 * place, that should _not_ intersect with both -- current mappings
+	 * and mappings of the task we're restoring here. The subsequent
+	 * call finds the start address for the restorer.
+	 *
+	 * After the start address is found we populate it with the restorer
+	 * parts one by one (some are remap-ed, some are mmap-ed and copied
+	 * or inited from scratch).
+	 */
+
 	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vma_list, &self_vma_list,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
