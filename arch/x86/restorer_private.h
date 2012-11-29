@@ -68,6 +68,8 @@ struct rt_sigframe {
 	/* fp state follows here */
 };
 
+#define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+
 #define RUN_CLONE_RESTORE_FN						\
 	asm volatile(							\
 		     "clone_emul:				\n"	\

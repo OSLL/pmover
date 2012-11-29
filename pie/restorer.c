@@ -147,6 +147,8 @@ static void restore_sched_info(struct rst_sched_param *p)
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {
+	int ret;
+
 	sys_set_tid_address((int *)args->clear_tid_addr);
 
 	if (args->has_futex) {
@@ -157,11 +159,20 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 	}
 
 	if (args->has_blk_sigset)
-		sigframe->uc.uc_sigmask.sig[0] = args->blk_sigset;
+		RT_SIGFRAME_UC(sigframe).uc_sigmask.sig[0] = args->blk_sigset;
 
 	restore_sched_info(&args->sp);
 
-	return restore_gpregs(sigframe, &args->gpregs);
+	ret = restore_gpregs(sigframe, &args->gpregs);
+	if (ret) {
+		return ret;
+	}
+
+#ifdef ARCH_NEED_FP
+	ret = restore_fpregs(sigframe, &args->fpstate);
+#endif
+
+	return ret;
 }
 
 /*
@@ -445,6 +456,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		if (!vma_priv(vma_entry))
 			continue;
+
+		if (vma_entry->start > TASK_SIZE) {
+			continue;
+		}
 
 		if (vma_entry->start < vma_entry->shmid)
 			break;

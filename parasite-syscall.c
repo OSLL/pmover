@@ -549,6 +549,14 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		
 		if (ret) {
 			pr_err("Dumping pages failed with %d\n", ret);
+
+			pr_err("failed to dump vma %"PRIx64"-%"PRIx64": %lu pages %lu skipped %lu total\n",
+				vma_area->vma.start, vma_area->vma.end,
+				parasite_dumppages->nrpages_dumped,
+				parasite_dumppages->nrpages_skipped,
+				parasite_dumppages->nrpages_total);
+
+
 			goto out_fini;
 		}
 
@@ -676,11 +684,12 @@ int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 
 #ifdef CONFIG_HAS_TLS
 uint32_t parasite_get_tls_seized(struct parasite_ctl *ctl) {
-	struct parasite_get_tls_args tls_args;
+	struct parasite_get_tls_args *tls_args;
 
-	parasite_execute(PARASITE_CMD_GET_TLS, ctl, &tls_args, sizeof(tls_args));
+	tls_args = (struct parasite_get_tls_args*)parasite_args_s(ctl, sizeof(*tls_args));
+	parasite_execute(PARASITE_CMD_GET_TLS, ctl);
 
-	return tls_args.tls;
+	return tls_args->tls;
 }
 #endif
 

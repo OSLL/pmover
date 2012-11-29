@@ -274,7 +274,7 @@ static int restore_priv_vma_content(pid_t pid)
 	 * Read page contents.
 	 */
 	while (1) {
-		u64 va, page_offset;
+		size_t va, page_offset;
 		char buf[PAGE_SIZE];
 		void *p;
 
@@ -722,7 +722,7 @@ static int check_core(CoreEntry *core)
 			goto out;
 		}
 
-		if (!core->thread_info) {
+		if (!CORE_THREAD_INFO(core)) {
 			pr_err("Core info data missed for non-zombie\n");
 			goto out;
 		}

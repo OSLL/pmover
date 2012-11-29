@@ -63,6 +63,11 @@ struct thread_restore_args {
 
 	int				pid;
 	UserRegsEntry		        gpregs;
+
+#ifdef ARCH_NEED_FP
+	UserFPState			fpstate;
+#endif
+
 	u64				clear_tid_addr;
 
 	bool				has_futex;
