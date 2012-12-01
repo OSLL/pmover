@@ -1167,6 +1167,10 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	unsigned int *taddr;
 	pid_t pid = tid->real;
 
+#ifdef CONFIG_HAS_TLS
+	u32 tls;
+#endif
+
 	pr_info("\n");
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
@@ -1184,12 +1188,21 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 		goto err_free;
 
 	ret = parasite_dump_thread_seized(parasite_ctl, pid, &taddr,
-					  &tid->virt, &core->thread_core->blk_sigset);
+					  &tid->virt, &core->thread_core->blk_sigset
+#ifdef CONFIG_HAS_TLS
+					  , &tls
+#endif
+	);
+
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err_free;
 	}
 	core->thread_core->has_blk_sigset = true;
+
+#ifdef CONFIG_HAS_TLS
+	CORE_THREAD_INFO(core)->tls = tls;
+#endif
 
 	pr_info("%d: virt_pid=%d tid_address=%p sig_blocked=0x%lx\n", pid, 
 			tid->virt, taddr, core->thread_core->blk_sigset);

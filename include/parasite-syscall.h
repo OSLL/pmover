@@ -35,9 +35,17 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				      struct list_head *vma_area_list,
 				      struct cr_fdset *cr_fdset);
 struct parasite_dump_thread;
+
+#ifndef CONFIG_HAS_TLS
+extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
+                                        unsigned int **tid_add, pid_t *tid,
+                                        void *blocked);
+#else
 extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_add, pid_t *tid,
-					void *blocked);
+					void *blocked,
+					u32* tls);
+#endif
 
 struct parasite_drain_fd;
 struct fd_opts;

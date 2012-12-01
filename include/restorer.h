@@ -68,6 +68,10 @@ struct thread_restore_args {
 	UserFPState			fpstate;
 #endif
 
+#ifdef CONFIG_HAS_TLS
+	u32				tls;
+#endif
+
 	u64				clear_tid_addr;
 
 	bool				has_futex;

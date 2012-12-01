@@ -1829,6 +1829,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		thread_args[i].ta		= task_args;
 		thread_args[i].gpregs		= *CORE_GPREGS(core);
 		thread_args[i].clear_tid_addr	= CORE_THREAD_INFO(core)->clear_tid_addr;
+#ifdef CONFIG_HAS_TLS
+		thread_args[i].tls		= CORE_THREAD_INFO(core)->tls;
+#endif
 
 		if (core->thread_core) {
 			thread_args[i].has_futex	= true;

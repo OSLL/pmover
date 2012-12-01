@@ -282,7 +282,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
-	args->pgid = sys_getpgid();
+	args->pgid = sys_getpgid(0);
 
 	return 0;
 }
@@ -368,6 +368,10 @@ static int dump_thread(struct parasite_dump_thread *args)
 
 	args->blocked = s->sig_blocked;
 	args->tid = tid;
+
+#ifdef CONFIG_HAS_TLS
+	args->tls = get_tls();
+#endif
 
 	return 0;
 }

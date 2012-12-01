@@ -199,6 +199,10 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	restore_creds(&args->ta->creds);
 
+#ifdef CONFIG_HAS_TLS
+	restore_tls(args->tls);
+#endif
+
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	pr_info("%ld: Restored\n", sys_gettid());
@@ -208,7 +212,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_dec_and_wake(&thread_inprogress);
 
-	new_sp = (long)rt_sigframe + 8;
+	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
 	ARCH_RT_SIGRETURN;
 
 core_restore_end:

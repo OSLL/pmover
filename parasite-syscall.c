@@ -357,9 +357,17 @@ err:
 	return -1;
 }
 
+
+#ifndef CONFIG_HAS_TLS
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_addr, pid_t *tid,
 					void *blocked)
+#else
+int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
+					unsigned int **tid_addr, pid_t *tid,
+					void *blocked,
+					u32* tls)
+#endif
 {
 	struct parasite_dump_thread *args;
 	int ret;
@@ -371,6 +379,10 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 	memcpy(blocked, &args->blocked, sizeof(args->blocked));
 	*tid_addr = args->tid_addr;
 	*tid = args->tid;
+
+#ifdef CONFIG_HAS_TLS
+	*tls = args->tls;
+#endif
 
 	return ret;
 }

@@ -99,6 +99,10 @@ struct parasite_dump_thread {
 	unsigned int		*tid_addr;
 	pid_t			tid;
 	k_rtsigset_t		blocked;
+
+#ifdef CONFIG_HAS_TLS
+	u32			tls;
+#endif
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
