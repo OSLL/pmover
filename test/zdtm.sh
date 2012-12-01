@@ -137,7 +137,7 @@ ITERATIONS=1
 
 check_mainstream()
 {
-	local -a ver_arr
+	local ver_arr
 	local ver_str=`uname -r`
 
 	$CRTOOLS check && return 0
@@ -151,7 +151,7 @@ git://git.kernel.org/pub/scm/linux/kernel/git/gorcunov/linux-cr.git
 ===================================================================
 EOF
 
-	ver_arr=(`echo ${ver_str//./ }`)
+	ver_arr=`echo ${ver_str//./ }`
 
 	[ "${ver_arr[0]}" -gt 3 ] && return 0
 	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 7 ]] && return 0
