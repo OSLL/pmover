@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS	= -g -O2 -Wall -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 TST_NOFILE	=				\
 		busyloop00			\
@@ -76,7 +76,6 @@ TST_NOFILE	=				\
 		tty02				\
 		mountpoints			\
 		netns				\
-		session01			\
 		socket-ext			\
 		unhashed_proc			\
 		cow00				\
