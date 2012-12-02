@@ -213,7 +213,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
-	ARCH_RT_SIGRETURN;
+	ARCH_RT_SIGRETURN(new_sp);
 
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
@@ -657,7 +657,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 			 * have any additional instructions... oh, dear...
 			 */
 
-			RUN_CLONE_RESTORE_FN;
+			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
 		}
 
 		ret = sys_flock(fd, LOCK_UN);
@@ -734,7 +734,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	restore_tls(args->tls);
 #endif
 
-	ARCH_RT_SIGRETURN;
+	ARCH_RT_SIGRETURN(new_sp);
 
 core_restore_end:
 	pr_err("Restorer fail %ld\n", sys_getpid());

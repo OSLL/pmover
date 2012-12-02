@@ -70,7 +70,8 @@ struct rt_sigframe {
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
 
-#define RUN_CLONE_RESTORE_FN						\
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
+			     thread_args, clone_restore_fn)             \
 	asm volatile(							\
 		     "clone_emul:				\n"	\
 		     "movq %2, %%rsi				\n"	\
@@ -108,7 +109,7 @@ struct rt_sigframe {
 		     : "rax", "rdi", "rsi", "rdx", "r10", "memory")
 
 
-#define ARCH_RT_SIGRETURN						\
+#define ARCH_RT_SIGRETURN(new_sp)					\
 	asm volatile(							\
 		     "movq %0, %%rax				    \n"	\
 		     "movq %%rax, %%rsp				    \n"	\
@@ -127,54 +128,6 @@ struct rt_sigframe {
 		     : "r"(ret)					\
 		     : "memory")
 
-
-/*static int arch_restore_thread_sigframe(struct thread_restore_args *args) {
-	struct rt_sigframe *rt_sigframe;
-	unsigned long fsgs_base;
-	int ret;
-
-#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
-#define CPREGT2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
-
-	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
-
-	CPREGT1(r8);
-	CPREGT1(r9);
-	CPREGT1(r10);
-	CPREGT1(r11);
-	CPREGT1(r12);
-	CPREGT1(r13);
-	CPREGT1(r14);
-	CPREGT1(r15);
-	CPREGT2(rdi, di);
-	CPREGT2(rsi, si);
-	CPREGT2(rbp, bp);
-	CPREGT2(rbx, bx);
-	CPREGT2(rdx, dx);
-	CPREGT2(rax, ax);
-	CPREGT2(rcx, cx);
-	CPREGT2(rsp, sp);
-	CPREGT2(rip, ip);
-	CPREGT2(eflags, flags);
-	CPREGT1(cs);
-	CPREGT1(gs);
-	CPREGT1(fs);
-
-	fsgs_base = args->gpregs.fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
-	if (ret) {
-		return ret;
-		
-	}
-
-	fsgs_base = args->gpregs.gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
-	if (ret) {
-		return ret;
-	}
-
-	return 0;
-}*/
 
 static int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {

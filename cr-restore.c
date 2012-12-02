@@ -59,6 +59,8 @@
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 
+#include <arch_restorer.h>
+
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
@@ -1754,7 +1756,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->t.blk_sigset		= core->tc->blk_sigset;
 	task_args->t.has_blk_sigset	= true;
 
-	get_core_fpstate(core, task_args);
 #ifdef CONFIG_HAS_TLS
 	get_core_tls(core, task_args);
 #endif
@@ -1871,7 +1872,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * and restoreing core is extremely destructive.
 	 */
 
-	jump_to_restorer_blob;
+	jump_to_restorer_blob(new_sp, restore_task_exec_start, task_args);
 
 err:
 	free_mappings(&self_vma_list);

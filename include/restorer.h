@@ -190,6 +190,5 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 			vma_entry_is(vma, VMA_FILE_PRIVATE)))
 
 #include <memcpy_64.h>
-#include <arch_restorer.h>
 
 #endif /* CR_RESTORER_H__ */

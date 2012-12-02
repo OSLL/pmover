@@ -63,7 +63,8 @@ struct rt_sigframe {
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->sig.uc
 
-#define RUN_CLONE_RESTORE_FN						\
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, 	\
+			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
 		     "clone_emul:				\n"	\
 		     "ldr %%r1, %2				\n"	\
@@ -95,12 +96,12 @@ struct rt_sigframe {
 		       "m"(new_sp),					\
 		       "r"(&parent_tid),				\
 		       "r"(&thread_args[i].pid),			\
-		       "r"(args->clone_restore_fn),			\
+		       "r"(clone_restore_fn),				\
 		       "r"(&thread_args[i])				\
 		     : "r0", "r1", "r2", "r3", "memory")
 
 
-#define ARCH_RT_SIGRETURN						\
+#define ARCH_RT_SIGRETURN(new_sp)					\
 	asm volatile(							\
 		     "mov %%sp, %0				    \n"	\
 		     "mov %%r7,  #"__stringify(__NR_rt_sigreturn)"  \n" \
@@ -118,79 +119,6 @@ struct rt_sigframe {
 		     : "r"(ret)					\
 		     : "memory")
 
-
-static int arch_restore_thread_sigframe(struct thread_restore_args *args) {
-	struct rt_sigframe *rt_sigframe;
-
-#define CPREGT1(d)	rt_sigframe->sig.uc.uc_mcontext.arm_##d = args->gpregs.d
-#define CPREGT2(d, s)	rt_sigframe->sig.uc.uc_mcontext.d = args->gpregs.s
-
-	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
-
-	CPREGT1(r0);
-	CPREGT1(r1);
-	CPREGT1(r2);
-	CPREGT1(r3);
-	CPREGT1(r4);
-	CPREGT1(r5);
-	CPREGT1(r6);
-	CPREGT1(r7);
-	CPREGT1(r8);
-	CPREGT1(r9);
-	CPREGT1(r10);
-	CPREGT1(fp);
-	CPREGT1(ip);
-	CPREGT1(sp);
-	CPREGT1(lr);
-	CPREGT1(pc);
-	CPREGT1(cpsr);
-
-	return 0;
-}
-
-
-static int arch_restore_task_sigframe(struct task_restore_core_args *args) {
-	struct rt_sigframe *rt_sigframe;
-
-	rt_sigframe = (void *)args->t.mem_zone.rt_sigframe + 8;
-
-#define CPREG1(d)	rt_sigframe->sig.uc.uc_mcontext.arm_##d = args->t.gpregs.d
-#define CPREG2(d, s)	rt_sigframe->sig.uc.uc_mcontext.d = args->t.gpregs.s
-
-	CPREG1(r0);
-	CPREG1(r1);
-	CPREG1(r2);
-	CPREG1(r3);
-	CPREG1(r4);
-	CPREG1(r5);
-	CPREG1(r6);
-	CPREG1(r7);
-	CPREG1(r8);
-	CPREG1(r9);
-	CPREG1(r10);
-	CPREG1(fp);
-	CPREG1(ip);
-	CPREG1(sp);
-	CPREG1(lr);
-	CPREG1(pc);
-	CPREG1(cpsr);
-
-#undef CPREG1
-#undef CPREG2
-
-	/*
-	 * Blocked signals.
-	 */
-	rt_sigframe->sig.uc.uc_sigmask.sig[0] = args->t.blk_sigset;
-
-	struct aux_sigframe *aux = &rt_sigframe->sig.uc.uc_regspace;
-
-	aux->vfp.magic = VFP_MAGIC;
-	aux->vfp.size = VFP_STORAGE_SIZE;
-	//builtin_memcpy(&aux->vfp.ufp, &args->fpstate.vfp, sizeof(struct user_vfp));
-
-	return 0;
-}
 
 static int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r) {
 #define CPREG1(d)       f->sig.uc.uc_mcontext.arm_##d = r->d
