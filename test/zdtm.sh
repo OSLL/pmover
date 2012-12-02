@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ZP="zdtm/live"
 
@@ -137,7 +137,7 @@ ITERATIONS=1
 
 check_mainstream()
 {
-	local ver_arr
+	local -a ver_arr
 	local ver_str=`uname -r`
 
 	$CRTOOLS check && return 0
