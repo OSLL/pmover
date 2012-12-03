@@ -68,7 +68,6 @@ else
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
-MAKEFLAGS	:= --no-print-directory
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
