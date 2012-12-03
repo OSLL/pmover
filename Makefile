@@ -18,7 +18,7 @@ HEXDUMP		:= hexdump
 ECHO		:= echo
 NM		:= nm
 AWK		:= awk
-SH		:= sh
+SH		:= bash
 MAKE		:= make
 
 # Additional ARCH settings for x86

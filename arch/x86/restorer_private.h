@@ -104,7 +104,7 @@ struct rt_sigframe {
 		       "g"(new_sp),					\
 		       "g"(&parent_tid),				\
 		       "g"(&thread_args[i].pid),			\
-		       "g"(args->clone_restore_fn),			\
+		       "g"(clone_restore_fn),				\
 		       "g"(&thread_args[i])				\
 		     : "rax", "rdi", "rsi", "rdx", "r10", "memory")
 
