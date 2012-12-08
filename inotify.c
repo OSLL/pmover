@@ -135,7 +135,7 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 	if (!info->remap) {
 		target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
 		if (target < 0) {
-			pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+			pr_perror("Can't open file handle for 0x%08x:0x%016"PRIx64,
 				  iwe->s_dev, iwe->i_ino);
 			goto err;
 		}
@@ -143,7 +143,7 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 	} else
 		path = info->remap->path;
 
-	pr_debug("\t\tRestore watch for 0x%08x:0x%016lx\n", iwe->s_dev, iwe->i_ino);
+	pr_debug("\t\tRestore watch for 0x%08x:0x%016"PRIx64"\n", iwe->s_dev, iwe->i_ino);
 
 	/*
 	 * FIXME The kernel allocates wd-s sequentially,

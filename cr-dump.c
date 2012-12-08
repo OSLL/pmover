@@ -1200,7 +1200,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	CORE_THREAD_INFO(core)->tls = tls;
 #endif
 
-	pr_info("%d: virt_pid=%d tid_address=%p sig_blocked=0x%lx\n", pid, 
+	pr_info("%d: virt_pid=%d tid_address=%p sig_blocked=0x%"PRIx64"\n", pid, 
 			tid->virt, taddr, core->thread_core->blk_sigset);
 	CORE_THREAD_INFO(core)->clear_tid_addr = (u64) taddr;
 

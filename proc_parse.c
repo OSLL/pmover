@@ -129,7 +129,7 @@ static int is_anon_shmem_map(dev_t dev)
 		munmap(map, PAGE_SIZE);
 
 		shmem_dev = buf.st_dev;
-		pr_info("Found anon-shmem piggie at %lx\n", shmem_dev);
+		pr_info("Found anon-shmem piggie at %"PRIx64"\n", (uint64_t)shmem_dev);
 	}
 
 	return shmem_dev == dev;
@@ -216,7 +216,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 					if (!S_ISSOCK(buf.st_mode))
 						goto err_bogus_mapfile;
 
-					pr_info("Found socket %lu mapping @%lx\n", buf.st_ino, start);
+					pr_info("Found socket %"PRIu64" mapping @%"PRIx64"\n", buf.st_ino, start);
 					vma_area->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 					vma_area->vm_socket_id = buf.st_ino;
 				} else if (errno != ENOENT)
@@ -331,7 +331,7 @@ err_bogus_mapping:
 	goto err;
 
 err_bogus_mapfile:
-	pr_perror("Can't open %d's mapfile link %lx", pid, start);
+	pr_perror("Can't open %d's mapfile link %"PRIx64, pid, start);
 	goto err;
 }
 
@@ -900,7 +900,7 @@ int parse_fdinfo(int fd, int type,
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 			ret = sscanf(str,
-					"inotify wd:%x ino:%lx sdev:%x "
+					"inotify wd:%x ino:%"PRIx64" sdev:%x "
 					"mask:%x ignored_mask:%x "
 					"fhandle-bytes:%x fhandle-type:%x "
 					"f_handle: %n",
