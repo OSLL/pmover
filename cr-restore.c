@@ -69,8 +69,6 @@ static int prepare_restorer_blob(void);
 
 static LIST_HEAD(rst_vma_list);
 static int rst_nr_vmas;
-static void *premmapped_addr;
-static unsigned long premmapped_len;
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -415,10 +413,10 @@ static int read_vmas(int pid)
 		return -1;
 	}
 
-	old_premmapped_addr = premmapped_addr;
-	old_premmapped_len = premmapped_len;
-	premmapped_addr = addr;
-	premmapped_len = priv_size;
+	old_premmapped_addr = current->rst->premmapped_addr;
+	old_premmapped_len = current->rst->premmapped_len;
+	current->rst->premmapped_addr = addr;
+	current->rst->premmapped_len = priv_size;
 
 	pvma = list_entry(&old, struct vma_area, list);
 
@@ -522,11 +520,20 @@ static int prepare_sigactions(int pid)
 	if (fd_sigact < 0)
 		return -1;
 
-	for (sig = 1; sig < SIGMAX; sig++) {
+	for (sig = 1; sig <= SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = pb_read_one(fd_sigact, &e, PB_SIGACT);
+		ret = pb_read_one_eof(fd_sigact, &e, PB_SIGACT);
+		if (ret == 0) {
+			if (sig != SIGMAX_OLD + 1) { /* backward compatibility */
+				pr_err("Unexpected EOF %d\n", sig);
+				ret = -1;
+				break;
+			}
+			pr_warn("This format of sigacts-%d.img is depricated\n", pid);
+			break;
+		}
 		if (ret < 0)
 			break;
 
@@ -620,7 +627,7 @@ static void zombie_prepare_signals(void)
 	memset(&act, 0, sizeof(act));
 	act.sa_handler = SIG_DFL;
 
-	for (sig = 1; sig < SIGMAX; sig++)
+	for (sig = 1; sig <= SIGMAX; sig++)
 		sigaction(sig, &act, NULL);
 }
 
@@ -655,12 +662,12 @@ static void zombie_prepare_signals(void)
 
 static inline int sig_fatal(int sig)
 {
-	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1 << sig));
+	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1UL << sig));
 }
 
 struct task_entries *task_entries;
 
-static int restore_one_fake(int pid)
+static int restore_one_fake(void)
 {
 	/* We should wait here, otherwise last_pid will be changed. */
 	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
@@ -673,13 +680,9 @@ static int restore_one_zombie(int pid, int exit_code)
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
 	if (task_entries != NULL) {
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
-
+		restore_finish_stage(CR_STATE_RESTORE);
 		zombie_prepare_signals();
-
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+		restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 	}
 
 	if (exit_code & 0x7f) {
@@ -739,9 +742,6 @@ static int restore_one_task(int pid)
 {
 	int fd, ret;
 	CoreEntry *core;
-
-	if (current->state == TASK_HELPER)
-		return restore_one_fake(pid);
 
 	fd = open_image_ro(CR_FD_CORE, pid);
 	if (fd < 0)
@@ -878,7 +878,6 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	if (!current || status)
 		goto err;
 
-	/* Skip a helper if it was completed successfully */
 	while (pid) {
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
@@ -889,15 +888,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (status)
 			break;
 
-		list_for_each_entry(pi, &current->children, sibling) {
-			if (pi->state != TASK_HELPER)
-				continue;
+		/* Exited (with zero code) helpers are OK */
+		list_for_each_entry(pi, &current->children, sibling)
 			if (pi->pid.virt == siginfo->si_pid)
 				break;
-		}
 
-		if (&pi->sibling == &current->children)
-			break; /* The process is not a helper */
+		BUG_ON(&pi->sibling == &current->children);
+		if (pi->state != TASK_HELPER)
+			break;
 	}
 
 err:
@@ -972,9 +970,8 @@ static void restore_pgid(void)
 static int mount_proc(void)
 {
 	int ret;
-	char proc_mountpoint[PATH_MAX];
+	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
-	snprintf(proc_mountpoint, sizeof(proc_mountpoint), "crtools-proc.XXXXXX");
 	if (mkdtemp(proc_mountpoint) == NULL) {
 		pr_perror("mkdtemp failed %s", proc_mountpoint);
 		return -1;
@@ -1094,18 +1091,47 @@ static int restore_task_with_children(void *_arg)
 	if (current->pgid == current->pid.virt)
 		restore_pgid();
 
-	futex_dec_and_wake(&task_entries->nr_in_progress);
-	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
+	restore_finish_stage(CR_STATE_FORKING);
 
 	if (current->pgid != current->pid.virt)
 		restore_pgid();
 
-	if (current->state != TASK_HELPER) {
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_PGID);
+	if (current->state == TASK_HELPER)
+		return restore_one_fake();
+
+	restore_finish_stage(CR_STATE_RESTORE_PGID);
+	return restore_one_task(current->pid.virt);
+}
+
+static inline int stage_participants(int next_stage)
+{
+	switch (next_stage) {
+	case CR_STATE_FORKING:
+		return task_entries->nr_tasks + task_entries->nr_helpers;
+	case CR_STATE_RESTORE_PGID:
+		return task_entries->nr_tasks;
+	case CR_STATE_RESTORE:
+	case CR_STATE_RESTORE_SIGCHLD:
+		return task_entries->nr_threads;
 	}
 
-	return restore_one_task(current->pid.virt);
+	BUG();
+	return -1;
+}
+
+static int restore_switch_stage(int next_stage)
+{
+	int ret;
+	futex_t *np = &task_entries->nr_in_progress;
+
+	futex_wait_while_gt(np, 0);
+	ret = (int)futex_get(np);
+	if (ret < 0)
+		return ret;
+
+	futex_set(np, stage_participants(next_stage));
+	futex_set_and_wake(&task_entries->start, next_stage);
+	return 0;
 }
 
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
@@ -1142,8 +1168,10 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	if (init->pid.virt == INIT_PID) {
 		if (!(opts->namespaces_flags & CLONE_NEWPID)) {
-			pr_err("This process tree can be restored in a new pid namespace.\n");
-			pr_err("crtools should be re-executed with --namespace pid\n");
+			pr_err("This process tree can only be restored "
+				"in a new pid namespace.\n"
+				"crtools should be re-executed with the "
+				"\"--namespace pid\" option.\n");
 			return -1;
 		}
 	} else	if (opts->namespaces_flags & CLONE_NEWPID) {
@@ -1151,37 +1179,28 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		return -1;
 	}
 
+	futex_set(&task_entries->nr_in_progress, stage_participants(CR_STATE_FORKING));
 
 	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
 
 	pr_info("Wait until all tasks are forked\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_tasks);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_PGID);
 
 	pr_info("Wait until all tasks restored pgid\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE);
 	if (ret < 0)
 		goto out;
-
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE);
 
 	pr_info("Wait until all tasks are restored\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_wait_until(&task_entries->nr_in_progress, 0);
 
 
@@ -1228,7 +1247,7 @@ static int prepare_task_entries()
 		pr_perror("Can't map shmem");
 		return -1;
 	}
-	task_entries->nr = 0;
+	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_FORKING);
@@ -1252,8 +1271,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 
 	if (crtools_prepare_shared() < 0)
 		return -1;
-
-	futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks + task_entries->nr_helpers);
 
 	return restore_root_task(root_item, opts);
 }
@@ -1726,8 +1743,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	mem += self_vmas_len;
 	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vma_list);
 	task_args->nr_vmas = rst_nr_vmas;
-	task_args->premmapped_addr = (unsigned long) premmapped_addr;
-	task_args->premmapped_len = premmapped_len;
+	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
+	task_args->premmapped_len = current->rst->premmapped_len;
 	if (!task_args->tgt_vmas)
 		goto err;
 

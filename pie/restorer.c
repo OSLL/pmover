@@ -203,13 +203,11 @@ long __export_restore_thread(struct thread_restore_args *args)
 	restore_tls(args->tls);
 #endif
 
-	futex_dec_and_wake(&task_entries->nr_in_progress);
-
 	pr_info("%ld: Restored\n", sys_gettid());
 
-	futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
-	futex_dec_and_wake(&task_entries->nr_in_progress);
-	futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	restore_finish_stage(CR_STATE_RESTORE);
+	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
@@ -676,19 +674,15 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_creds(&args->creds);
 
-	futex_dec_and_wake(&args->task_entries->nr_in_progress);
-
 	pr_info("%ld: Restored\n", sys_getpid());
 
-	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
+	restore_finish_stage(CR_STATE_RESTORE);
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(rt_sigset_t));
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
-	futex_dec_and_wake(&args->task_entries->nr_in_progress);
-
-	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);

@@ -20,11 +20,6 @@
 
 #include "files-reg.h"
 
-struct file_remap {
-	char *path;
-	unsigned int users;
-};
-
 /*
  * Ghost files are those not visible from the FS. Dumping them is
  * nasty and the only way we have -- just carry its contents with
@@ -33,14 +28,11 @@ struct file_remap {
 struct ghost_file {
 	struct list_head	list;
 	u32			id;
-	union {
-		struct /* for dumping */ {
-			u32	dev;
-			u32	ino;
-		};
 
-		struct file_remap remap; /* for restoring */
-	};
+	u32			dev;
+	u32			ino;
+
+	struct file_remap	remap;
 };
 
 static u32 ghost_file_ids = 1;
@@ -87,6 +79,14 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
 		goto close_ifd;
+
+	/*
+	 * For old formats where optional has_[dev|ino] is
+	 * not present we will have zeros here which is quite
+	 * a sign for "absent" fields.
+	 */
+	gf->dev = gfe->dev;
+	gf->ino = gfe->ino;
 
 	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
@@ -209,7 +209,7 @@ tail:
 
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
-	int img, fd = -1;
+	int img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	char lpath[32];
 
@@ -223,10 +223,16 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	gfe.gid = st->st_gid;
 	gfe.mode = st->st_mode;
 
+	gfe.has_dev = gfe.has_ino = true;
+	gfe.dev = MKKDEV(MAJOR(st->st_dev), MINOR(st->st_dev));
+	gfe.ino = st->st_ino;
+
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		return -1;
 
 	if (S_ISREG(st->st_mode)) {
+		int fd;
+
 		/*
 		 * Reopen file locally since it may have no read
 		 * permissions when drained
@@ -239,11 +245,39 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 		}
 		if (copy_file(fd, img, st->st_size))
 			return -1;
+
+		close(fd);
 	}
 
-	close_safe(&fd);
 	close(img);
 	return 0;
+}
+
+void remap_put(struct file_remap *remap)
+{
+	mutex_lock(ghost_file_mutex);
+	if (--remap->users == 0) {
+		pr_info("Unlink the ghost %s\n", remap->path);
+		unlink(remap->path);
+	}
+	mutex_unlock(ghost_file_mutex);
+}
+
+struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
+{
+	struct ghost_file *gf;
+
+	mutex_lock(ghost_file_mutex);
+	list_for_each_entry(gf, &ghost_files, list) {
+		if (gf->dev == dev && gf->ino == ino) {
+			gf->remap.users++;
+			mutex_unlock(ghost_file_mutex);
+			return &gf->remap;
+		}
+	}
+	mutex_unlock(ghost_file_mutex);
+
+	return NULL;
 }
 
 static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
