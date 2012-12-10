@@ -173,7 +173,7 @@ construct_root()
 {
 	local root=$1
 	local test_path=$2
-	local libdir=$root/lib64
+	local libdir=$root/lib
 
 	mkdir $libdir
 	for i in `ldd $test_path | awk '{ print $1 }' | grep -v vdso`; do
@@ -181,7 +181,8 @@ construct_root()
 		[ -f $libdir/$lib ] && continue ||
 		[ -f $i ] && cp $i $libdir && continue ||
 		[ -f /lib64/$i ] && cp /lib64/$i $libdir && continue ||
-		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir || return 1
+		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir && continue ||
+		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && continue || echo "Failed at " $i && return 1
 	done
 }
 
