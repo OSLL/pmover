@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 
 #include "zdtmtst.h"
+
+#if defined(__x86_64__)
 #include "lock.h"
 
 const char *test_doc	= "Test that sid, pgid are restored";
@@ -336,3 +338,16 @@ err:
 	}
 	return 1;
 }
+
+#else
+
+int main(int argc, char** argv)
+{
+	test_init(argc, argv);
+	skip("Unsupported arch");
+
+	return 0;
+}
+
+#endif
+
