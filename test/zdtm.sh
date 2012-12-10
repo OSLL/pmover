@@ -182,7 +182,8 @@ construct_root()
 		[ -f $i ] && cp $i $libdir && continue ||
 		[ -f /lib64/$i ] && cp /lib64/$i $libdir && continue ||
 		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir && continue ||
-		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && continue || echo "Failed at " $i && return 1
+		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && continue
+		[ -f /lib/arm-linux-gnueabi/$i ] && cp /lib/arm-linux-gnueabi/$i $libdir && continue || echo "Failed at " $i && return 1
 	done
 }
 
