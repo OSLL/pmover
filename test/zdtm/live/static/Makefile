@@ -76,6 +76,7 @@ TST_NOFILE	=				\
 		tty02				\
 		mountpoints			\
 		netns				\
+		session01			\
 		socket-ext			\
 		unhashed_proc			\
 		cow00				\
