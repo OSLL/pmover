@@ -389,7 +389,7 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
 				pr_err("Ghost file size mismatch %lu/%lu\n",
-						written, bytes);
+						P(written), P(bytes));
 				return -1;
 			}
 			break;
@@ -436,7 +436,7 @@ void *shmalloc(size_t bytes)
 	void *ret;
 
 	if (bytes > SH_BUF_CHUNK) {
-		pr_err("Too big shared buffer requested %lu\n", bytes);
+		pr_err("Too big shared buffer requested %lu\n", P(bytes));
 		return NULL;
 	}
 

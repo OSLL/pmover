@@ -426,8 +426,8 @@ static int inet_validate_address(InetSkEntry *ie)
 		return 0;
 
 	pr_err("Addr len mismatch f %d ss %lu ds %lu\n", ie->family,
-			pb_repeated_size(ie, src_addr),
-			pb_repeated_size(ie, dst_addr));
+			P(pb_repeated_size(ie, src_addr)),
+			P(pb_repeated_size(ie, dst_addr)));
 
 	return -1;
 }

@@ -658,7 +658,7 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 		return -1;
 	}
 
-	info->futex_rla		= (u64)head;
+	info->futex_rla		= (u64)P(head);
 	info->futex_rla_len	= (u32)len;
 
 	return 0;

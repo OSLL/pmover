@@ -280,4 +280,6 @@ typedef struct {
 
 typedef UserX86RegsEntry UserRegsEntry;
 
+#define P(i) i
+
 #endif /* __CR_ASM_TYPES_H__ */
