@@ -38,7 +38,7 @@ ifeq ($(uname_M),i386)
 endif
 ifeq ($(uname_M),x86_64)
 	ARCH         := x86
-	DEFINES      := -DCONFIG_X86_64
+	ARCH_DEFINES := -DCONFIG_X86_64
 	LDARCH       := i386:x86-64
 endif
 
@@ -51,6 +51,7 @@ CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -iquote $(ARCH_DI
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
+DEFINES		+= $(ARCH_DEFINES)
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
 
@@ -75,7 +76,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH ARCH_DEFINES
 
 
 PROGRAM		:= crtools

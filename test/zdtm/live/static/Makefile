@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 $(ARCH_DEFINES)
 
 TST_NOFILE	=				\
 		busyloop00			\
@@ -219,6 +219,7 @@ posix_timers:		override LDLIBS += -lrt
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
+session01:		override CPPFLAGS += -iquote $(ARCH_DIR)/include -I$(SRC_DIR)/include
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

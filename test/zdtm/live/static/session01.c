@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "asm/types.h"
 #include "zdtmtst.h"
 #include "lock.h"
 

@@ -84,8 +84,10 @@ extern int parse_opt_string(char *param, void *arg);
 #include <stdio.h>
 #include <errno.h>
 
+#ifndef __stringify
 #define __stringify_1(x)        #x
 #define __stringify(x)          __stringify_1(x)
+#endif
 
 /* message helpers */
 extern void setup_outfile(void);
