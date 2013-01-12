@@ -123,7 +123,7 @@ static void print_hex(unsigned int num)
 	sys_write(logfd, z, sizeof(buf) - (z - buf));
 }
 
-static void print_hex_l(unsigned long num)
+static void print_hex_l(uint64_t num)
 {
 	char buf[18], *z = &buf[17];
 
@@ -135,7 +135,6 @@ static void print_hex_l(unsigned long num)
 	hexdigit(num >> 20, &buf[12], &z);
 	hexdigit(num >> 24, &buf[11], &z);
 	hexdigit(num >> 28, &buf[10], &z);
-
 	hexdigit(num >> 32, &buf[9], &z);
 	hexdigit(num >> 36, &buf[8], &z);
 	hexdigit(num >> 40, &buf[7], &z);
