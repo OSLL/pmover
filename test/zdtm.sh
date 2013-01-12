@@ -73,12 +73,6 @@ static/pty01
 static/pty04
 static/tty02
 static/child_opened_proc
-static/cow01
-static/fpu00
-static/fpu01
-static/mmx00
-static/sse00
-static/sse20
 static/fdt_shared
 "
 # Duplicate list with ns/ prefix
@@ -86,7 +80,6 @@ TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 
 # These ones are not in ns
 TEST_LIST="$TEST_LIST
-static/file_fown
 static/socket-ext
 static/socket-tcp
 static/socket-tcp6
@@ -112,11 +105,8 @@ static/utsname
 "
 
 IPC_TEST_LIST="
-static/ipc_namespace
-static/shm
 static/msgque
 static/sem
-transition/ipc
 "
 
 TEST_CR_KERNEL="
